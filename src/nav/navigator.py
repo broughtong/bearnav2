@@ -1,5 +1,7 @@
-#!/usr/bin/env python3
+
+#!/usr/bin/env python
 from geometry_msgs.msg import Twist
+
 class Navigator:
 
     def __init__(self):
