@@ -9,6 +9,7 @@ project(bearnav2)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  message_generation
   std_msgs
 )
 
@@ -51,6 +52,10 @@ find_package(catkin REQUIRED COMPONENTS
 #   Message1.msg
 #   Message2.msg
 # )
+add_message_files(
+    FILES
+    alignment.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -162,6 +167,11 @@ include_directories(
 #   scripts/my_python_script
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
+catkin_install_python(PROGRAMS
+    src/alignment/ros-1-wrapper.py
+    src/preprocessor/ros-1-wrapper.py
+    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

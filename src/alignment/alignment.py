@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-import cv2
 import yaml
+import histogram
+from backend import traditional
 
-class Preprocessor:
+class Alignment:
 
 	def __init__(self, configFilename):
 
 		self.readConfig(configFilename)
-
-		self.preprocess_image = True
-		self.use_hist_equalisation = True
 
 	def readConfig(self, filename):
 
@@ -17,18 +15,22 @@ class Preprocessor:
 		with open(filename, "r") as file:
 			data = yaml.safe_load(file)
 
-		self.preprocess_image = data["preprocess_image"]
-		self.use_hist_equalisation = data["use_hist_equalisation"]
-
+		for key in data.keys():
+			self.key = data[key]
 			
-	def process(self, img):
+	def process(self, imgA, imgB):
+	
+		kpsA, desA = traditional.detect(imgA, "SIFT")
+		kpsB, desB = traditional.detect(imgB, "SIFT")
 
-		if self.preprocess_img == False:
-			return img
+		displacements = traditional.match(kpsA, desA, kpsB, desB)
 
-		if self.use_hist_equalisation:
-			img = cv2.equalizeHist(img)
+		hist = histogram.slidingHist(displacements, 10)
 
-		return img
+		peak = histogram.getHistPeak(hist)
+
+		return peak, 1
+
+
+
 		
-

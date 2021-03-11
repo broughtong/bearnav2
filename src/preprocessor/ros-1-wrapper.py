@@ -18,6 +18,6 @@ def callback(msg):
 if __name__ == "__main__":
 
 	rospy.init_node("preprocessor")
-	pub = rospy.Publisher('preprocess/output', Image, queue_size=0)
+	pub = rospy.Publisher("preprocess/output", Image, queue_size=0)
 	rospy.Subscriber("preprocess/input", Image, callback)
 	rospy.spin()

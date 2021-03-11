@@ -17,9 +17,8 @@ class Preprocessor:
 		with open(filename, "r") as file:
 			data = yaml.safe_load(file)
 
-		self.preprocess_image = data["preprocess_image"]
-		self.use_hist_equalisation = data["use_hist_equalisation"]
-
+		for key in data.keys():
+			self.key = data[key]
 			
 	def process(self, img):
 
