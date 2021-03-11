@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 class Distance:
-	def __init__(self):
+	def __init__(self,use_twist):
         self driven_dist = 0
-        self have_odom = True #TODO  make parameter
+        self have_odom = use_twist #TODO  make parameter
         self last_odom = None
         self last_time = None
     def set(self,dst):

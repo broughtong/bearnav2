@@ -6,7 +6,7 @@ from nav_msgs.msg import Odom
 from bearnav_2.srv import SetDist
 
 pub = None
-d = distance.Distance()
+
 
 def callbackTwist(msg):
     driven, use = d.processT(msg)
@@ -25,6 +25,8 @@ def handle_set_dist(dst):
 if __name__ == "__main__":
 
     rospy.init_node("distance")
+    use_twist = rospy.get_param("use_twist",'False')
+    d = distance.Distance(use_twist)
     pub = rospy.Publisher("/distance", Int32, queue_size=0)
     rospy.Subscriber("/odom", Odom, callbackOdoom)
     rospy.Subscriber("/cmd_vel",Twist , callbackTwist)
