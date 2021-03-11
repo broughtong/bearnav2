@@ -2,8 +2,9 @@
 import rospy
 import distance
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
-from bearnav2.srv import SetDist
+from bearnav2.srv import SetDist, SetDistResponse
 
 pub = None
 
@@ -11,24 +12,26 @@ pub = None
 def callbackTwist(msg):
     driven, use = d.processT(msg)
     if use:
-        publisher.publish(driven)
+        pub.publish(driven)
 
 def callbackOdom(msg):
     driven, use = d.processO(msg)
     if use:
-        publisher.publish(driven)
+        pub.publish(driven)
 
 def handle_set_dist(dst):
-    d.set(dst)
+    driven = d.set(dst)
+    pub.publish(driven)
+    return SetDistResponse()
 
 
 if __name__ == "__main__":
 
     rospy.init_node("distance")
-    use_twist = rospy.get_param("use_twist",'False')
+    use_twist = rospy.get_param("use_twist",'True')
     d = distance.Distance(use_twist)
     pub = rospy.Publisher("/distance", Float64, queue_size=0) 
-    rospy.Subscriber("/odom", Odom, callbackOdoom)
+    rospy.Subscriber("/odom", Odometry, callbackOdom)
     rospy.Subscriber("/cmd_vel",Twist , callbackTwist)
-    s = rospy.Service('set_dist', SetDist, handle_add_two_ints)
+    s = rospy.Service('set_dist', SetDist, handle_set_dist)
     rospy.spin()
