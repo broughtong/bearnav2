@@ -2,8 +2,8 @@
 import rospy
 import navigator
 from geometry_msgs.msg import Twist
-from bearnav_2.msg import Alignment
-from bearnav_2.cfg import NavigatorConfig
+from bearnav2.msg import Alignment
+from bearnav2.cfg import NavigatorConfig
 pub = None
 n = navigator.Navigator("./config.yaml")
 

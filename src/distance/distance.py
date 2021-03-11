@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
 class Distance:
-	def __init__(self,use_twist):
-        self driven_dist = 0
-        self have_odom = use_twist #TODO  make parameter
-        self last_odom = None
-        self last_time = None
+    def __init__(self,use_twist):
+        self.driven_dist = 0
+        self.have_odom = use_twist #TODO  make parameter
+        self.last_odom = None
+        self.last_time = None
     def set(self,dst):
-        self driven_dist = dst.dist
+        self.driven_dist = dst.dist
 
     def drive(dx,dy,dz):
         self.driven_dist = self.driven_dist + (dx**2+dy**2+dz**2)**(1/2)
        
-
     def processT(self, msg):
         now = rospy.get_time()
         if self.have_odom:
@@ -38,5 +37,5 @@ class Distance:
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
         drive(dx,dy,dz)
         return self.driven_dist, True
-		
+        
 

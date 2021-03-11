@@ -2,8 +2,8 @@
 import rospy
 import distance
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odom
-from bearnav_2.srv import SetDist
+from nav_msgs.msg import Odometry
+from bearnav2.srv import SetDist
 
 pub = None
 
