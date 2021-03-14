@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import actionlib
-#import bearnav2 
+from std_msgs.msg import Float64
 from bearnav2.msg import MapMakerAction, MapMakerFeedback
 from bearnav2.srv import SetDist
 
@@ -12,26 +12,30 @@ class ActionServer():
     def __init__(self):
 
         print("Waiting for services to become available...")
-        #rospy.wait_for_service("set_dist")
+        rospy.wait_for_service("set_dist")
 
 
         print("Starting mapmaker server")
-        self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.callback, auto_start=False)
+        self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
 
         print("Resetting distance node")
-        self.distance_sub = rospy.subscriber()
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
+        self.distance_reset_srv(0)
+        self.distance_sub = rospy.Subscriber("/distance", Float64, self.distanceCB)
 
-    def callback(self, goal):
+    def distanceCB(self, msg):
+
+        
+
+    def actionCB(self, goal):
 
         print(goal)
-        #ddif 
-        #set distance to zero
-        #self.distance_reset_srv(0)
-        print("Here")
-         
 
+        #set distance to zero
+        self.distance_reset_srv(0)
+         
+        
         
         
     
