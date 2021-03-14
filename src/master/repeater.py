@@ -107,39 +107,9 @@ class ActionServer():
     def shutdown(self):
         self.isMapping = False
         self.bag.close()
-        
-        
-    
-"""
-
-    def execute_cb(self, goal):
-        success = True
-        
-        # append the seeds for the fibonacci sequence
-        self._feedback.sequence = []
-        self._feedback.sequence.append(0)
-        self._feedback.sequence.append(1)
-        
-        # start executing the action
-        for i in range(1, goal.order):
-            # check that preempt has not been requested by the client
-            if self._as.is_preempt_requested():
-                rospy.loginfo('%s: Preempted' % self._action_name)
-                self._as.set_preempted()
-                success = False
-                break
-            self._feedback.sequence.append(self._feedback.sequence[i] + self._feedback.sequence[i-1])
-            # publish the feedback
-            self._as.publish_feedback(self._feedback)
-          
-        if success:
-            self._result.sequence = self._feedback.sequence
-            self._as.set_succeeded(self._result)
-   """
-
 
 if __name__ == '__main__':
-    rospy.init_node("mapmaker_server")
+    rospy.init_node("replayer_server")
     server = ActionServer()
     rospy.spin()
     server.shutdown()
