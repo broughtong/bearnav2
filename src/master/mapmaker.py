@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 import rospy
+import os
 import actionlib
+import cv2
 from std_msgs.msg import Float64
 from bearnav2.msg import MapMakerAction, MapMakerFeedback
 from bearnav2.srv import SetDist
+from cv_bridge import CvBridge
 
 class ActionServer():
     #_feedback = bearnav2.msg.MapMakerFeedback()
@@ -11,22 +14,49 @@ class ActionServer():
 
     def __init__(self):
 
+        #some vars
+        self.isMapping = False
+        self.img = None
+        self.mapName = ""
+        self.mapStep = 50
+        self.nextStep = 0
+
         print("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
-
-
-        print("Starting mapmaker server")
-        self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
-        self.server.start()
 
         print("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
         self.distance_sub = rospy.Subscriber("/distance", Float64, self.distanceCB)
 
+        print("Subscibing to cameras")
+        self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color/compressed", Image, self.imageCB)
+
+        print("Starting mapmaker server")
+        self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
+        self.server.start()
+
+    def imageCB(self, msg):
+
+        self.img = br.imgmsg_to_cv2(msg)
+        self.checkShutdown()
+
     def distanceCB(self, msg):
 
-        
+        if not self.isMapping:
+            return
+
+        dist = msg.data
+        if dist > self.nextStep:
+            self.nextStep += self.mapStep
+            filename = os.path.join(filename, str(dist) + ".jpg")
+            cv2.imwrite(filename, img)
+
+        self.checkShutdown()
+
+    def checkShutdown()
+        if self.server.is_preempt_requested():
+            self.isMapping = False
 
     def actionCB(self, goal):
 
@@ -35,7 +65,6 @@ class ActionServer():
         #set distance to zero
         self.distance_reset_srv(0)
          
-        
         
         
     
