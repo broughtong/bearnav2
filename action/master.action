@@ -1,0 +1,10 @@
+#goal definition
+string mapname
+int startStop
+bool saveImgsForViz
+---
+#result definition
+int32[] sequence
+---
+#feedback
+int32[] sequence

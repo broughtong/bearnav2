@@ -1,0 +1,10 @@
+#goal definition
+string mapName
+bool start
+bool saveImgsForViz
+---
+#result definition
+bool success
+---
+#feedback
+string status
