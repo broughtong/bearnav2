@@ -3,6 +3,7 @@ import rospy
 import os
 import actionlib
 import cv2
+from sensor_msgs.msg import Image
 from std_msgs.msg import Float64
 from bearnav2.msg import MapMakerAction, MapMakerFeedback
 from bearnav2.srv import SetDist
@@ -15,10 +16,11 @@ class ActionServer():
     def __init__(self):
 
         #some vars
+        self.br = CvBridge()
         self.isMapping = False
         self.img = None
         self.mapName = ""
-        self.mapStep = 50
+        self.mapStep = 20
         self.nextStep = 0
 
         print("Waiting for services to become available...")
@@ -30,15 +32,16 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("/distance", Float64, self.distanceCB)
 
         print("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color/compressed", Image, self.imageCB)
+        self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
 
         print("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
+        print("Server started, awaiting goal")
 
     def imageCB(self, msg):
 
-        self.img = br.imgmsg_to_cv2(msg)
+        self.img = self.br.imgmsg_to_cv2(msg)
         self.checkShutdown()
 
     def distanceCB(self, msg):
@@ -47,20 +50,33 @@ class ActionServer():
             return
 
         dist = msg.data
-        if dist > self.nextStep:
+        if dist >= self.nextStep:
+            print("Triggered wp")
             self.nextStep += self.mapStep
-            filename = os.path.join(filename, str(dist) + ".jpg")
-            cv2.imwrite(filename, img)
+            print(self.mapName)
+            print(str(dist))
+            filename = os.path.join(self.mapName, str(dist) + ".jpg")
+
+            cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
 
-    def checkShutdown()
+    def checkShutdown(self):
         if self.server.is_preempt_requested():
             self.isMapping = False
 
     def actionCB(self, goal):
 
         print(goal)
+
+        if goal.start == True:
+            print("Starting mapping")
+            self.mapName = goal.mapName
+            self.isMapping = True
+
+        else:
+            print("Stopping Mapping")
+            self.isMapping = False
 
         #set distance to zero
         self.distance_reset_srv(0)
