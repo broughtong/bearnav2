@@ -37,7 +37,8 @@ class ActionServer():
         self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
 
         print("Subscibing to commands")
-        self.joy_sub = rospy.Subscriber("joy_teleop/joy", Joy, self.joyCB)
+        self.joy_topic = "joy_teleop/joy"
+        self.joy_sub = rospy.Subscriber(self.joy_topic, Joy, self.joyCB)
 
         print("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
@@ -68,14 +69,20 @@ class ActionServer():
 
     def joyCB(self, msg):
 
-        print(msg)            
+        if self.isMapping:
+            self.bag.write(self.joy_topic, msg) 
 
     def actionCB(self, goal):
 
         print(goal)
 
+        if goal.mapName == "":
+            print("Missing mapname")
+
         if goal.start == True:
             print("Starting mapping")
+            self.bag = rosbag.Bag(goal.mapName, "w")
+            os.mkdir(goal.mapName)
             self.mapName = goal.mapName
             self.isMapping = True
 
