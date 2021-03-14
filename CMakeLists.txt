@@ -74,18 +74,15 @@ add_message_files(
 #   Action2.action
 # )
 add_action_files(
-  DIRECTORY action
-  FILES master.action
+  #DIRECTORY action
+  FILES MapMaker.action
 )
 
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
    std_msgs
- )
-
-generate_messages(
-  DEPENDENCIES actionlib_msgs std_msgs
+   actionlib_msgs
 )
 
 ################################################

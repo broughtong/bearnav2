@@ -1,33 +1,41 @@
 #!/usr/bin/env python
 import rospy
 import actionlib
-import bearnav 
-import bearnav.msg 
-from bearnav.srv import SetDist
+#import bearnav2 
+from bearnav2.msg import MapMakerAction, MapMakerFeedback
+from bearnav2.srv import SetDist
 
-class BearnavAction(object):
-    _feedback = bearnav.msg.BearnavFeedback()
-    _result = bearnav.msg.BearnavResult()
+class ActionServer():
+    #_feedback = bearnav2.msg.MapMakerFeedback()
+    #_result = bearnav2.msg.MapMakerResult()
 
-    def __init__(self, name):
-        rospy.wait_for_service("set_dist")
+    def __init__(self):
 
-        self.name = name
-        self.server = actionlib.SimpleActionServer(name, bearnav.msg.BearnavAction, execute_cb=self.callback, auto_start=True)
-        self.distance_sub = rospy.
+        print("Waiting for services to become available...")
+        #rospy.wait_for_service("set_dist")
 
-        #distance server
+
+        print("Starting mapmaker server")
+        self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.callback, auto_start=False)
+        self.server.start()
+
+        print("Resetting distance node")
+        self.distance_sub = rospy.subscriber()
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
 
+    def callback(self, goal):
 
-    def callback(self):
-
+        print(goal)
+        #ddif 
+        #set distance to zero
+        #self.distance_reset_srv(0)
+        print("Here")
          
 
         
         
     
-
+"""
 
     def execute_cb(self, goal):
         success = True
@@ -52,8 +60,10 @@ class BearnavAction(object):
         if success:
             self._result.sequence = self._feedback.sequence
             self._as.set_succeeded(self._result)
-        
+   """
+
+
 if __name__ == '__main__':
     rospy.init_node("mapmaker_server")
-    server = BearnavAction(rospy.get_name())
+    server = ActionServer()
     rospy.spin()
