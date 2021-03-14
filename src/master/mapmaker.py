@@ -5,6 +5,7 @@ import actionlib
 import cv2
 import rosbag
 from sensor_msgs.msg import Image, Joy
+from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from bearnav2.msg import MapMakerAction, MapMakerFeedback
 from bearnav2.srv import SetDist
@@ -37,8 +38,10 @@ class ActionServer():
         self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
 
         print("Subscibing to commands")
-        self.joy_topic = "joy_teleop/joy"
-        self.joy_sub = rospy.Subscriber(self.joy_topic, Joy, self.joyCB)
+        #self.joy_topic = "joy_teleop/joy"
+        #self.joy_sub = rospy.Subscriber(self.joy_topic, Joy, self.joyCB)
+        self.joy_topic = "cmd_vel"
+        self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB)
 
         print("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
@@ -61,8 +64,7 @@ class ActionServer():
             self.nextStep += self.mapStep
             print(self.mapName)
             print(str(dist))
-            filename = os.path.join(self.mapName, str(dist) + ".jpg")
-
+            filename = os.path.join(self.mapName, str(int(dist)) + ".jpg")
             cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
@@ -70,6 +72,7 @@ class ActionServer():
     def joyCB(self, msg):
 
         if self.isMapping:
+            print("Adding joy")
             self.bag.write(self.joy_topic, msg) 
 
     def actionCB(self, goal):
@@ -81,22 +84,29 @@ class ActionServer():
 
         if goal.start == True:
             print("Starting mapping")
-            self.bag = rosbag.Bag(goal.mapName, "w")
-            os.mkdir(goal.mapName)
+            try:
+                os.mkdir(goal.mapName)
+            except:
+                pass
+            self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "w")
             self.mapName = goal.mapName
             self.isMapping = True
 
         else:
             print("Stopping Mapping")
             self.isMapping = False
+            self.bag.close()
 
         #set distance to zero
         self.distance_reset_srv(0)
          
     def checkShutdown(self):
         if self.server.is_preempt_requested():
-            self.isMapping = False
+            self.shutdown()
 
+    def shutdown(self):
+        self.isMapping = False
+        self.bag.close()
         
         
     
@@ -132,3 +142,4 @@ if __name__ == '__main__':
     rospy.init_node("mapmaker_server")
     server = ActionServer()
     rospy.spin()
+    server.shutdown()
