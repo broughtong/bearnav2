@@ -3,7 +3,8 @@ import rospy
 import os
 import actionlib
 import cv2
-from sensor_msgs.msg import Image
+import rosbag
+from sensor_msgs.msg import Image, Joy
 from std_msgs.msg import Float64
 from bearnav2.msg import MapMakerAction, MapMakerFeedback
 from bearnav2.srv import SetDist
@@ -22,6 +23,7 @@ class ActionServer():
         self.mapName = ""
         self.mapStep = 20
         self.nextStep = 0
+        self.bag = None
 
         print("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -33,6 +35,9 @@ class ActionServer():
 
         print("Subscibing to cameras")
         self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
+
+        print("Subscibing to commands")
+        self.joy_sub = rospy.Subscriber("joy_teleop/joy", Joy, self.joyCB)
 
         print("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
@@ -46,7 +51,7 @@ class ActionServer():
 
     def distanceCB(self, msg):
 
-        if not self.isMapping:
+        if self.isMapping == False or self.img == None:
             return
 
         dist = msg.data
@@ -61,9 +66,9 @@ class ActionServer():
 
         self.checkShutdown()
 
-    def checkShutdown(self):
-        if self.server.is_preempt_requested():
-            self.isMapping = False
+    def joyCB(self, msg):
+
+        print(msg)            
 
     def actionCB(self, goal):
 
@@ -81,6 +86,10 @@ class ActionServer():
         #set distance to zero
         self.distance_reset_srv(0)
          
+    def checkShutdown(self):
+        if self.server.is_preempt_requested():
+            self.isMapping = False
+
         
         
     
