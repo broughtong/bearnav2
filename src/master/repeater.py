@@ -72,6 +72,8 @@ class ActionServer():
 
         dist = msg.data
         if dist >= self.nextStep:
+            if self.img is None:
+                print("Warning: no image received")
             print("Triggered wp")
             self.getImg(self.nextStep)
             filename = os.path.join(self.mapName, str(int(self.nextStep)) + ".jpg")

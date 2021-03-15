@@ -18,16 +18,15 @@ def callbackA(msg):
 def callbackB(msg):
 	global imgABuf
     
-        if imgABuf is None:
-            print("Still haven't rec'd cam!!")
-            return
+    if imgABuf is None:
+        print("Still haven't rec'd cam!!")
+        return
 
 	imgB = br.imgmsg_to_cv2(msg)
 	alignment, uncertainty = a.process(imgABuf, imgB)
-        m = Alignment()
-        m.alignment = alignment
-        m.uncertainty = uncertainty
-        m.uncertainty = 0
+    m = Alignment()
+    m.alignment = alignment
+    m.uncertainty = uncertainty
 	pub.publish(m)
 
 if __name__ == "__main__":
