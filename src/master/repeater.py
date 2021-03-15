@@ -43,9 +43,10 @@ class ActionServer():
         self.al_sub = rospy.Subscriber("/alignment/output", Alignment, self.alignCB)
         self.al_1_pub = rospy.Publisher("/alignment/inputA", Image, queue_size=0)
         self.al_2_pub = rospy.Publisher("/alignment/inputB", Image, queue_size=0)
+        self.al_pub = rospy.Publisher("/correction_cmd", Alignment, queue_size=0)
 
         print("Setting up published for commands")
-        self.joy_topic = "cmd_vel"
+        self.joy_topic = "map_vel"
         self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=0)
 
         print("Starting repeater server")
@@ -83,6 +84,7 @@ class ActionServer():
 
         print("Master says:")
         print(msg)
+        self.al_pub.publish(msg)
 
     def actionCB(self, goal):
 
