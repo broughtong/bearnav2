@@ -1,11 +1,11 @@
-from keras import backend as K
+import tensorflow as tf
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras.applications import VGG19
-from keras.applications.vgg16 import preprocess_input
-from keras.preprocessing.image import load_img
-from keras.preprocessing.image import img_to_array
+from tensorflow.keras.applications.vgg16 import preprocess_input
+from tensorflow.keras.preprocessing.image import load_img
+from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import Model
-from keras.layers import *
+from tensorflow.keras.layers import *
 #import matplotlib.pyplot as plt
 import numpy as np
 import cv2
@@ -14,7 +14,7 @@ import os
 
 hideBottom = False
 modelType = "vgg16" #vgg16, vgg19
-layer = "block1_pool"
+layer = "block3_pool"
 square = False
 
 print("Loading VGG")
@@ -29,7 +29,11 @@ for layers in basemodel.layers:
 for idx in range(len(basemodel.layers)):
     print(basemodel.get_layer(index=idx).name)
 
+from tensorflow.keras import backend
+backend.clear_session()
 model = Model(inputs=basemodel.input, outputs=basemodel.get_layer(layer).output)
+backend.clear_session()
+graph = tf.get_default_graph()
 print("Finished loading model")
 
 #network comparison function
@@ -53,12 +57,15 @@ def align(baseimg, img):
 
     if hideBottom:
         eraseBottom(baseimg)
+    print(baseimg.shape)
     baseimgcrop = baseimg[:, 136:616]
     baseimgcrop = cv2.resize(baseimgcrop, (224, 224))
+    print(baseimgcrop.shape)
     baseimgcrop = img_to_array(baseimgcrop)
     baseimgcrop = np.expand_dims(baseimgcrop, axis=0)
     baseimgcrop = preprocess_input(baseimgcrop)
-    baseimgdescriptor = model.predict(baseimgcrop)
+    with graph.as_default():
+        baseimgdescriptor = model.predict(baseimgcrop)
     
     if hideBottom:
             eraseBottom(img)
@@ -89,5 +96,5 @@ def align(baseimg, img):
 
     print("Best:", bestOffset, bestOffsetValue)
 
-    return bestOffset
+    return bestOffset, bestOffsetValue
 

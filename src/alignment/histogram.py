@@ -119,5 +119,5 @@ def getHistPeak(hist):
 	    	        if value > maxPeak:
 			        maxPeak = value
 			        maxOffset = key
-	return maxOffset
+	return maxOffset, maxPeak
 

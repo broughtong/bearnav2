@@ -82,6 +82,9 @@ class ActionServer():
 
         print(goal)
 
+        if self.img is None:
+            print("WARNING: NO IMAGE INPUT RECEIVED")
+
         if goal.mapName == "":
             print("Missing mapname")
 

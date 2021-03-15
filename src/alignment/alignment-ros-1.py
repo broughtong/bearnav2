@@ -16,23 +16,25 @@ def callbackA(msg):
         imgABuf = br.imgmsg_to_cv2(msg)
 
 def callbackB(msg):
-        global imgABuf
-    
+        #global imgABuf
+
         if imgABuf is None:
                 print("Still haven't rec'd cam!!")
-        return
 
         imgB = br.imgmsg_to_cv2(msg)
+        print("Getting alignment from imgs")
         alignment, uncertainty = a.process(imgABuf, imgB)
         m = Alignment()
         m.alignment = alignment
         m.uncertainty = uncertainty
+        print("Sending corrections!")
         pub.publish(m)
 
 if __name__ == "__main__":
 
         rospy.init_node("alignment")
-        pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
-        rospy.Subscriber("alignment/inputA", Image, callbackA)
-        rospy.Subscriber("alignment/inputB", Image, callbackB)
+        pub = rospy.Publisher("/alignment/output", Alignment, queue_size=0)
+        rospy.Subscriber("/alignment/inputA", Image, callbackA)
+        rospy.Subscriber("/alignment/inputB", Image, callbackB)
+        print("Ready...")
         rospy.spin()

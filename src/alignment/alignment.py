@@ -2,14 +2,15 @@
 import yaml
 import histogram
 from backends import traditional, vgg
+import numpy as np
 
 class Alignment:
 
         def __init__(self, configFilename):
 
                 self.readConfig(configFilename)
-        self.method = "SIFT"
-        self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
+                self.method = "VGG"
+                self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
 
         def readConfig(self, filename):
 
@@ -25,6 +26,7 @@ class Alignment:
                 peak, uncertainty = 0, 0
 
                 if self.method in self.traditionalMethods: 
+                        print("Using sift for trad align")
                         kpsA, desA = traditional.detect(imgA, self.method)
                         kpsB, desB = traditional.detect(imgB, self.method)
 
@@ -32,11 +34,19 @@ class Alignment:
                         displacements = [int(x) for x in displacements]
 
                         hist = histogram.slidingHist(displacements, 10)
-                        peak = histogram.getHistPeak(hist)
+                        peak, n = histogram.getHistPeak(hist)
+                        print(peak, n)
 
                 elif self.method == "VGG":
             
-                        peak = vgg.align(imgA, imgB)
+                        print(imgA.shape, imgB.shape, "SHAPRES")
+
+                        if imgA.shape[-1] == 4:
+                                print("WARNING 4D image!")
+                                imgA = imgA[:,:,:3]
+                        
+                        peak, val = vgg.align(imgA, imgB)
+                        print(peak, val)
 
                 return peak, 0
 
