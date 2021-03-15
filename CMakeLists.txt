@@ -75,7 +75,7 @@ add_message_files(
 # )
 add_action_files(
   #DIRECTORY action
-  FILES MapMaker.action
+  FILES MapMaker.action MapRepeater.action
 )
 
 ## Generate added messages and services with any dependencies listed here
