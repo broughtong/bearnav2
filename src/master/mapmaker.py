@@ -86,6 +86,8 @@ class ActionServer():
             print("Starting mapping")
             try:
                 os.mkdir(goal.mapName)
+                with open(goal.mapName + "/params", "w") as f:
+                    f.write("stepSize: " + str(self.mapStep))
             except:
                 pass
             self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "w")
