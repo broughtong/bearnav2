@@ -27,6 +27,7 @@ def callbackB(msg):
         m = Alignment()
         m.alignment = alignment
         m.uncertainty = uncertainty
+        m.uncertainty = 0
 	pub.publish(m)
 
 if __name__ == "__main__":
