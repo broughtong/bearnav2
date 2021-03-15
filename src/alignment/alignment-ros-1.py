@@ -12,27 +12,27 @@ br = CvBridge()
 imgABuf = None
 
 def callbackA(msg):
-	global imgABuf
-	imgABuf = br.imgmsg_to_cv2(msg)
+        global imgABuf
+        imgABuf = br.imgmsg_to_cv2(msg)
 
 def callbackB(msg):
-	global imgABuf
+        global imgABuf
     
-    if imgABuf is None:
-        print("Still haven't rec'd cam!!")
+        if imgABuf is None:
+                print("Still haven't rec'd cam!!")
         return
 
-	imgB = br.imgmsg_to_cv2(msg)
-	alignment, uncertainty = a.process(imgABuf, imgB)
-    m = Alignment()
-    m.alignment = alignment
-    m.uncertainty = uncertainty
-	pub.publish(m)
+        imgB = br.imgmsg_to_cv2(msg)
+        alignment, uncertainty = a.process(imgABuf, imgB)
+        m = Alignment()
+        m.alignment = alignment
+        m.uncertainty = uncertainty
+        pub.publish(m)
 
 if __name__ == "__main__":
 
-	rospy.init_node("alignment")
-	pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
-	rospy.Subscriber("alignment/inputA", Image, callbackA)
-	rospy.Subscriber("alignment/inputB", Image, callbackB)
-	rospy.spin()
+        rospy.init_node("alignment")
+        pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
+        rospy.Subscriber("alignment/inputA", Image, callbackA)
+        rospy.Subscriber("alignment/inputB", Image, callbackB)
+        rospy.spin()

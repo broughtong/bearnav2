@@ -18,7 +18,7 @@ def detect(img, featureType):
 
 	kps, des = featureTypes[featureType].detectAndCompute(img, None)
 
-    return kps, des
+        return kps, des
 
 def match(kpsA, desA, kpsB, desB):
 

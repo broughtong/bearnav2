@@ -38,7 +38,7 @@ def getDiff(a, b):
     flatA = a.flat
     flatB = b.flat
     for i in range(len(flatA)):
-    	if square = False:
+    	if square == False:
             diff += abs(flatA[i] - flatB[i])
 	else:
             diff += abs(flatA[i] - flatB[i]) ** 2
