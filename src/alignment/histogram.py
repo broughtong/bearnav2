@@ -4,7 +4,7 @@ def slidingHist(vals, binSize):
 
 	histograms = []
 
-	for offset in range(math.floor(-binSize/2), math.floor(binSize/2)):
+	for offset in range(int(math.floor(-binSize/2)), int(math.floor(binSize/2))):
 
 		histVals = [offset]
 
@@ -115,9 +115,9 @@ def getHistPeak(hist):
 	maxPeak = 0
 	maxOffset = 0
 	for h in hist:
-		for key, value in hist.items():
-			if value > maxPeak:
-				maxPeak = value
-				maxOffset = key
+	        for key, value in h.items():
+	    	        if value > maxPeak:
+			        maxPeak = value
+			        maxOffset = key
 	return maxOffset
 

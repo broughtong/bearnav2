@@ -9,7 +9,7 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterFeedback
+from bearnav2.msg import MapRepeaterAction, MapRepeaterFeedback, Alignment
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 
@@ -40,7 +40,7 @@ class ActionServer():
         self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
 
         print("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("/alignment/output", Image, self.alignCB)
+        self.al_sub = rospy.Subscriber("/alignment/output", Alignment, self.alignCB)
         self.al_1_pub = rospy.Publisher("/alignment/inputA", Image, queue_size=0)
         self.al_2_pub = rospy.Publisher("/alignment/inputB", Image, queue_size=0)
 
@@ -75,7 +75,7 @@ class ActionServer():
             self.getImg(self.nextStep)
             filename = os.path.join(self.mapName, str(int(self.nextStep)) + ".jpg")
             self.nextStep += self.mapStep
-            cv2.imwrite(filename, self.img)
+            #cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
 

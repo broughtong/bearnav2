@@ -177,7 +177,7 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 catkin_install_python(PROGRAMS
-    src/alignment/ros-1-wrapper.py
+    src/alignment/alignment-ros-1.py
     src/preprocessor/ros-1-wrapper.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import yaml
 import histogram
-from backend import traditional
+from backends import traditional
 
 class Alignment:
 
@@ -24,12 +24,15 @@ class Alignment:
 		kpsB, desB = traditional.detect(imgB, "SIFT")
 
 		displacements = traditional.match(kpsA, desA, kpsB, desB)
+                displacements = [int(x) for x in displacements]
 
 		hist = histogram.slidingHist(displacements, 10)
-
 		peak = histogram.getHistPeak(hist)
 
 		return peak, 1
+
+if __name__ == "__main__":
+        print(traditional)
 
 
 
