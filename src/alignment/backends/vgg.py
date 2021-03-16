@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.applications import VGG16
+from tensorflow.python.keras.backend import set_session
 from tensorflow.keras.applications import VGG19
 from tensorflow.keras.applications.vgg16 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img
@@ -30,10 +31,16 @@ for idx in range(len(basemodel.layers)):
     print(basemodel.get_layer(index=idx).name)
 
 from tensorflow.keras import backend
-backend.clear_session()
-model = Model(inputs=basemodel.input, outputs=basemodel.get_layer(layer).output)
-backend.clear_session()
+#backend.clear_session()
+
+sess = tf.keras.backend.get_session()
+init = tf.global_variables_initializer()
+
 graph = tf.get_default_graph()
+with graph.as_default():
+    sess.run(init)
+    model = Model(inputs=basemodel.input, outputs=basemodel.get_layer(layer).output)
+    model._make_predict_function()
 print("Finished loading model")
 
 #network comparison function
@@ -54,17 +61,18 @@ def eraseBottom(img):
             img[i][j] = [0, 0, 0]
 
 def align(baseimg, img):
+    global graph, sess
 
     if hideBottom:
         eraseBottom(baseimg)
-    print(baseimg.shape)
+    print("Begin nn align")
     baseimgcrop = baseimg[:, 136:616]
     baseimgcrop = cv2.resize(baseimgcrop, (224, 224))
-    print(baseimgcrop.shape)
     baseimgcrop = img_to_array(baseimgcrop)
     baseimgcrop = np.expand_dims(baseimgcrop, axis=0)
     baseimgcrop = preprocess_input(baseimgcrop)
     with graph.as_default():
+        set_session(sess)
         baseimgdescriptor = model.predict(baseimgcrop)
     
     if hideBottom:
@@ -75,13 +83,19 @@ def align(baseimg, img):
     offsetResults = []
     offsetValues = []
 
-    for offset in range(0, 272):
+    #for offset in range(0, 272):
+    for offset in range(100, 160):
+        if offset % 5 != 0:
+            continue
+        print(offset)
         imgcrop = img[:, offset:offset+480]
         imgcrop = cv2.resize(imgcrop, (224, 224))
         imgcrop = img_to_array(imgcrop)
         imgcrop = np.expand_dims(imgcrop, axis=0)
         imgcrop = preprocess_input(imgcrop)
-        descriptor = model.predict(imgcrop)
+        with graph.as_default():
+            set_session(sess)
+            descriptor = model.predict(imgcrop)
 
         offset -= 136
         diff = getDiff(descriptor, baseimgdescriptor)
