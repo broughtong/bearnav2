@@ -24,6 +24,7 @@ class Alignment:
         def process(self, imgA, imgB):
         
                 peak, uncertainty = 0, 0
+                hist = []
 
                 if self.method in self.traditionalMethods: 
                         print("Using sift for trad align")
@@ -35,6 +36,16 @@ class Alignment:
 
                         hist = histogram.slidingHist(displacements, 10)
                         peak, n = histogram.getHistPeak(hist)
+
+                        h = {}
+                        for i in hist:
+                            h.update(i)
+
+                        yVals = []
+                        for x in range(min(h), max(h) + 1):
+                            yVals.append(h[x])
+                        hist = yVals
+
                         print(peak, n)
 
                 elif self.method == "VGG":
@@ -45,10 +56,10 @@ class Alignment:
                                 print("WARNING 4D image!")
                                 imgA = imgA[:,:,:3]
                         
-                        peak, val = vgg.align(imgA, imgB)
+                        peak, val, hist = vgg.align(imgA, imgB)
                         print(peak, val)
 
-                return peak, 0
+                return peak, 0, hist
 
 if __name__ == "__main__":
         print(traditional)

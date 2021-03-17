@@ -110,5 +110,5 @@ def align(baseimg, img):
 
     print("Best:", bestOffset, bestOffsetValue)
 
-    return bestOffset, bestOffsetValue
+    return bestOffset, bestOffsetValue, offsetResults
 
