@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import matplotlib
+matplotlib.use('Agg')
 import rospy
 import cv2
 from sensor_msgs.msg import Image

@@ -12,6 +12,7 @@ from std_msgs.msg import Float64
 from bearnav2.msg import MapRepeaterAction, MapRepeaterFeedback, Alignment
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
+import numpy as np
 
 class ActionServer():
     #_feedback = bearnav2.msg.MapMakerFeedback()
@@ -56,21 +57,24 @@ class ActionServer():
 
     def imageCB(self, msg):
 
-        #self.img = self.br.imgmsg_to_cv2(msg)
+        self.img = self.br.imgmsg_to_cv2(msg)
         self.al_1_pub.publish(msg)
         self.checkShutdown()
 
     def getImg(self, dist):
         
-        fn = os.path.join(self.mapName, str(int(dist)) + ".jpg")
-        print("Opening : " + fn)
-        img = cv2.imread(fn)
-        msg = self.br.cv2_to_imgmsg(img)
-        self.al_2_pub.publish(msg)
+        if self.isRepeating:
+            fn = os.path.join(self.mapName, str(int(dist*100)) + ".jpg")
+            print("Opening : " + fn)
+            img = cv2.imread(fn)
+            msg = self.br.cv2_to_imgmsg(img)
+            self.al_2_pub.publish(msg)
 
     def distanceCB(self, msg):
 
         dist = msg.data
+        if self.isRepeating == False:
+            return
         if dist >= self.nextStep:
             if self.img is None:
                 print("Warning: no image received")
@@ -117,6 +121,7 @@ class ActionServer():
         print("Starting repeat")
         self.isRepeating = True
         for topic, message, ts in self.bag.read_messages():
+            print(topic)
             now = rospy.Time.now()
             if sim_start is None:
                 sim_start = ts
@@ -141,7 +146,7 @@ class ActionServer():
             line = line.split(" ")
             if "stepSize" in line[0]:
                 print("Setting step size to: %s" % (line[1]))
-                self.mapStep = int(line[1])
+                self.mapStep = float(line[1])
 
     def checkShutdown(self):
         if self.server.is_preempt_requested():

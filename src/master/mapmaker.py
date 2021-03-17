@@ -22,7 +22,7 @@ class ActionServer():
         self.isMapping = False
         self.img = None
         self.mapName = ""
-        self.mapStep = 20
+        self.mapStep = 0.3
         self.nextStep = 0
         self.bag = None
 
@@ -41,6 +41,7 @@ class ActionServer():
         #self.joy_topic = "joy_teleop/joy"
         #self.joy_sub = rospy.Subscriber(self.joy_topic, Joy, self.joyCB)
         self.joy_topic = "cmd_vel"
+        self.joy_topic = "/husky_velocity_controller/cmd_vel"
         self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB)
 
         print("Starting mapmaker server")
@@ -67,7 +68,7 @@ class ActionServer():
             self.nextStep += self.mapStep
             print(self.mapName)
             print(str(dist))
-            filename = os.path.join(self.mapName, str(int(dist)) + ".jpg")
+            filename = os.path.join(self.mapName, str(int(dist*100)) + ".jpg")
             cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
