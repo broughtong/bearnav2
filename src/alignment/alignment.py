@@ -48,6 +48,9 @@ class Alignment:
 
                         print(peak, n)
 
+                        if n < 10:
+                            peak = 0
+
                 elif self.method == "VGG":
             
                         print(imgA.shape, imgB.shape, "SHAPRES")
