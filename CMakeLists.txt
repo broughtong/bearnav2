@@ -179,7 +179,12 @@ include_directories(
 # )
 catkin_install_python(PROGRAMS
     src/alignment/alignment-ros-1.py
-    src/preprocessor/ros-1-wrapper.py
+    src/distance/distance-ros-1.py
+    src/gui/histogram-viz.py
+    src/master/mapmaker.py
+    src/master/repeater.py
+    src/nav/nav-r1.py
+    #src/preprocessor/ros-1-wrapper.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -27,6 +27,7 @@ class ActionServer():
         self.nextStep = 0
         self.bag = None
         self.isRepeating = False
+        self.fileList = []
 
         print("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -60,9 +61,22 @@ class ActionServer():
         self.al_1_pub.publish(msg)
         self.checkShutdown()
 
-    def getImg(self, dist):
+    def getClosestImg(self, dist):
+
+        if len(self.fileList) < 1:
+            print("warning with map files")
+
+        closestFilename = None
+        closestDistance = 999999
+        dist = float(dist)
+        for filename in self.fileList:
+            ffilename = float(filename)
+            diff = abs(ffilename - dist)
+            if diff < closestDistance:
+                closestDistance = diff
+                closestFilename = filename
         
-        fn = os.path.join(self.mapName, str(int(dist)) + ".jpg")
+        fn = os.path.join(self.mapName, closestFilename + ".jpg")
         print("Opening : " + fn)
         img = cv2.imread(fn)
         msg = self.br.cv2_to_imgmsg(img)
@@ -75,10 +89,8 @@ class ActionServer():
             if self.img is None:
                 print("Warning: no image received")
             print("Triggered wp")
-            self.getImg(self.nextStep)
-            filename = os.path.join(self.mapName, str(int(self.nextStep)) + ".jpg")
+            self.getClosestImg(dist)
             self.nextStep += self.mapStep
-            #cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
 
@@ -103,13 +115,25 @@ class ActionServer():
             print("Can't find params")
 
         self.parseParams(os.path.join(goal.mapName, "params"))
+        
+        #get file list
+        allFiles = []
+        for files in os.walk(goal.mapName):
+            allFiles = files[2]
+            break
+        for filename in allFiles:
+            if ".jpg" in filename:
+                filename = ".".join(filename.split(".")[:-1])
+                self.fileList.append(filename)
+        print("Found %i map files" % (len(self.fileList)))
+
+        #set distance to zero
+        print("Resetting distnace")
+        self.distance_reset_srv(0)
 
         print("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
-
-        #set distance to zero
-        self.distance_reset_srv(0)
 
         #replay bag
         start = rospy.Time.now()

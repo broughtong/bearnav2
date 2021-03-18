@@ -22,9 +22,10 @@ class ActionServer():
         self.isMapping = False
         self.img = None
         self.mapName = ""
-        self.mapStep = 20
+        self.mapStep = 0.3
         self.nextStep = 0
         self.bag = None
+        self.lastDistance = None
 
         print("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -59,6 +60,7 @@ class ActionServer():
             return
 
         dist = msg.data
+        self.lastDistance = dist
         if dist >= self.nextStep:
             if self.img is None:
                 print("Warning: no image received!")
@@ -67,7 +69,7 @@ class ActionServer():
             self.nextStep += self.mapStep
             print(self.mapName)
             print(str(dist))
-            filename = os.path.join(self.mapName, str(int(dist)) + ".jpg")
+            filename = os.path.join(self.mapName, str(dist) + ".jpg")
             cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
@@ -101,6 +103,9 @@ class ActionServer():
             self.isMapping = True
 
         else:
+            print("Creating final wp")
+            filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
+            cv2.imwrite(filename, self.img)
             print("Stopping Mapping")
             self.isMapping = False
             self.bag.close()
