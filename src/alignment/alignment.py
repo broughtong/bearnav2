@@ -9,7 +9,7 @@ class Alignment:
         def __init__(self, configFilename):
 
                 self.readConfig(configFilename)
-                self.method = "VGG"
+                self.method = "SIFT"
                 self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
 
         def readConfig(self, filename):

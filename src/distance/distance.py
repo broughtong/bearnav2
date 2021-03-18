@@ -4,7 +4,7 @@ import rospy
 class Distance:
     def __init__(self,use_twist):
         self.driven_dist = 0
-        self.use_twist = use_twist #TODO  make parameter
+        self.use_twist = False #TODO  make parameter
         print(use_twist)
         self.last_odom = None
         self.last_time = None
@@ -15,7 +15,7 @@ class Distance:
         return self.driven_dist
 
     def drive(self, dx,dy,dz):
-        self.driven_dist = self.driven_dist + (dx**2+dy**2+dz**2)**(1/2)
+        self.driven_dist = self.driven_dist + (dx**2+dy**2+dz**2)**0.5
        
     def processT(self, msg):
         now = rospy.get_time()

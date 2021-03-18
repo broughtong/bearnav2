@@ -42,6 +42,7 @@ class ActionServer():
         #self.joy_topic = "joy_teleop/joy"
         #self.joy_sub = rospy.Subscriber(self.joy_topic, Joy, self.joyCB)
         self.joy_topic = "cmd_vel"
+        self.joy_topic = "/husky_velocity_controller/cmd_vel"
         self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB)
 
         print("Starting mapmaker server")
