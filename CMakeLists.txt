@@ -60,6 +60,7 @@ add_message_files(
     FILES
     Alignment.msg
     IntList.msg
+    FeatureLocations.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -103,6 +104,7 @@ add_action_files(
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
  generate_dynamic_reconfigure_options(
    cfg/Navigator.cfg
+   cfg/LiveFeatures.cfg
 #   cfg/DynReconf2.cfg
  )
 
@@ -179,7 +181,17 @@ include_directories(
 # )
 catkin_install_python(PROGRAMS
     src/alignment/alignment-ros-1.py
-    src/preprocessor/ros-1-wrapper.py
+    src/alignment/alignment.py
+    src/alignment/histogram.py
+    src/alignment/backends/__init__.py
+    src/distance/distance-ros-1.py
+    src/distance/distance.py
+    src/gui/histogram-viz.py
+    src/gui/live-viz.py
+    src/master/mapmaker.py
+    src/master/repeater.py
+    src/nav/nav-r1.py
+    #src/preprocessor/ros-1-wrapper.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

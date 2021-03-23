@@ -1,9 +1,6 @@
 <launch>
     <group ns="bearnav2">
-        
-        <node pkg="bearnav2" type="distance/distance-ros-1" name="distance" respawn="true" />
-
-        <node pkg="bearnav2" type="alignment-ros-1" name="aligner" respawn="true" />
-
+        <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" />
+        <node pkg="bearnav2" type="alignment-ros-1.py" name="aligner" respawn="true" />
     </group>
 </launch>
