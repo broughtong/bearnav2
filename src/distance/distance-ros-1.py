@@ -21,6 +21,7 @@ def callbackOdom(msg):
 
 def handle_set_dist(dst):
     driven = d.set(dst)
+    print("Distance set to " + str(driven))
     pub.publish(driven)
     return SetDistResponse()
 

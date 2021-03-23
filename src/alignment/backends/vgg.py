@@ -63,6 +63,111 @@ def eraseBottom(img):
 def align(baseimg, img):
     global graph, sess
 
+    print("Begin nn align")
+    baseimgcrop = baseimg[:, 136:616]
+    baseimgcrop = cv2.resize(baseimgcrop, (224, 224))
+    baseimgcrop = img_to_array(baseimgcrop)
+    baseimgcrop = np.expand_dims(baseimgcrop, axis=0)
+    baseimgcrop = preprocess_input(baseimgcrop)
+    with graph.as_default():
+        set_session(sess)
+        baseimgdescriptor = model.predict(baseimgcrop)
+    
+    imgcrop = img[:, 136:616]
+    imgcrop = cv2.resize(imgcrop, (224, 224))
+    imgcrop = img_to_array(imgcrop)
+    imgcrop = np.expand_dims(imgcrop, axis=0)
+    imgcrop = preprocess_input(imgcrop)
+    with graph.as_default():
+        set_session(sess)
+        imgdescriptor = model.predict(imgcrop)
+
+    bestOffset = -1
+    bestOffsetValue = float('inf')
+    offsetResults = []
+    offsetValues = []
+
+    for offset in range(0, 272):
+    #for offset in range(100, 160):
+        #if offset % 5 != 0:
+        #    continue
+        #print(offset)
+
+        offset -= 136
+        diff = getDiff(descriptor, baseimgdescriptor)
+
+        #print(offset, diff)
+        offsetValues.append(offset)
+        offsetResults.append(diff)
+
+        if diff < bestOffsetValue:
+            bestOffsetValue = diff
+            bestOffset = offset
+
+    if bestOffset < -30 or bestOffset > 30:
+        bestOffset = 0
+    bestOffset = 0
+
+    print("Best:", bestOffset, bestOffsetValue)
+
+    return bestOffset, bestOffsetValue, offsetResults
+
+
+def align_t(baseimg, img):
+    global graph, sess
+
+    if hideBottom:
+        eraseBottom(baseimg)
+    print("Begin nn align")
+    baseimgcrop = baseimg[:, 136:616]
+    baseimgcrop = cv2.resize(baseimgcrop, (224, 224))
+    baseimgcrop = img_to_array(baseimgcrop)
+    baseimgcrop = np.expand_dims(baseimgcrop, axis=0)
+    baseimgcrop = preprocess_input(baseimgcrop)
+    with graph.as_default():
+        set_session(sess)
+        baseimgdescriptor = model.predict(baseimgcrop)
+    
+    if hideBottom:
+            eraseBottom(img)
+
+    bestOffset = -1
+    bestOffsetValue = float('inf')
+    offsetResults = []
+    offsetValues = []
+
+    #for offset in range(0, 272):
+    for offset in range(100, 160):
+        if offset % 5 != 0:
+            continue
+        print(offset)
+        imgcrop = img[:, offset:offset+480]
+        imgcrop = cv2.resize(imgcrop, (224, 224))
+        imgcrop = img_to_array(imgcrop)
+        imgcrop = np.expand_dims(imgcrop, axis=0)
+        imgcrop = preprocess_input(imgcrop)
+        with graph.as_default():
+            set_session(sess)
+            descriptor = model.predict(imgcrop)
+
+        offset -= 136
+        diff = getDiff(descriptor, baseimgdescriptor)
+
+        #print(offset, diff)
+        offsetValues.append(offset)
+        offsetResults.append(diff)
+
+        if diff < bestOffsetValue:
+            bestOffsetValue = diff
+            bestOffset = offset
+
+    print("Best:", bestOffset, bestOffsetValue)
+
+    return bestOffset, bestOffsetValue, offsetResults
+
+def align(baseimg, img):
+    global graph, sess
+
     if hideBottom:
         eraseBottom(baseimg)
     print("Begin nn align")
