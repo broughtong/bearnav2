@@ -22,7 +22,6 @@ def callback(msg):
 
         img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        #img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         plt.close()
 
         msg = br.cv2_to_imgmsg(img, encoding="rgb8")
@@ -33,5 +32,5 @@ if __name__ == "__main__":
         rospy.init_node("histogram_viz")
         pub = rospy.Publisher("/histogram_viz", Image, queue_size=0)
         rospy.Subscriber("/histogram", IntList, callback)
-        print("Ready...")
+        print("Histogram viz ready...")
         rospy.spin()
