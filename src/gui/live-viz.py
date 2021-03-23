@@ -11,7 +11,7 @@ br = CvBridge()
 pub = None
 
 rectSize = 8
-rectCol = [0, 0, 255]
+rectCol = [255, 0, 0] #BGR
 
 currentType = 0
 featureTypes = [
@@ -45,6 +45,7 @@ def detectImg(msg, compressed):
         x = int(i.pt[0])
         y = int(i.pt[1])
         cv2.rectangle(img, (x-rectSize, y-rectSize), (x+rectSize, y+rectSize), rectCol, 1)     
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     msg = br.cv2_to_imgmsg(img, encoding="rgb8")
     pub.publish(msg)
 
@@ -52,6 +53,6 @@ if __name__ == "__main__":
     rospy.init_node("live_features")
     pub = rospy.Publisher("/live_viz", Image, queue_size=0)
     srv = Server(LiveFeaturesConfig, dr_callback)
-    #rospy.Subscriber("/camera_2/image_raw/compressed", Image, img_cb)
-    rospy.Subscriber("/camera_2/image_raw/compressed", CompressedImage, img_compressed_cb)
+    rospy.Subscriber("/camera_2/image_rect_color", Image, img_cb)
+    #rospy.Subscriber("/camera_2/image_raw/compressed", CompressedImage, img_compressed_cb)
     rospy.spin()

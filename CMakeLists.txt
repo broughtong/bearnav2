@@ -185,8 +185,8 @@ catkin_install_python(PROGRAMS
     src/alignment/histogram.py
     src/alignment/backends/__init__.py
     src/distance/distance-ros-1.py
-    src/distance/distance.py
     src/gui/histogram-viz.py
+    src/gui/matches-viz.py
     src/gui/live-viz.py
     src/master/mapmaker.py
     src/master/repeater.py
