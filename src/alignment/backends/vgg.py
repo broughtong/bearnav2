@@ -104,6 +104,10 @@ def align(baseimg, img):
             bestOffsetValue = diff
             bestOffset = offset
 
+    if bestOffset < -30 or bestOffset > 30:
+        bestOffset = 0
+    bestOffset = 0
+
     print("Best:", bestOffset, bestOffsetValue)
 
     return bestOffset, bestOffsetValue, offsetResults
