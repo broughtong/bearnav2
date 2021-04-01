@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 import rospy
 import cv2
 import alignment
@@ -6,9 +7,10 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from bearnav2.msg import Alignment, IntList
 
+
 pub = None
 pub_hist = None
-a = alignment.Alignment("./config.yaml")
+aligner = None
 br = CvBridge()
 imgABuf = None
 
@@ -35,6 +37,9 @@ def callbackB(msg):
         pub_hist.publish(hm)
 
 if __name__ == "__main__":
+
+        alignmentConfig = sys.argv[1]
+        aligner = alignment.Alignment(alignerConfig)
 
         rospy.init_node("alignment")
         pub = rospy.Publisher("/alignment/output", Alignment, queue_size=0)
