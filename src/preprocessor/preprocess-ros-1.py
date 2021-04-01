@@ -10,14 +10,14 @@ p = preprocess.Preprocessor("./config.yaml")
 br = CvBridge()
 
 def callback(msg):
-	img = br.imgmsg_to_cv2(msg)
-	img = p.process(img)
-	msg = br.cv2_to_imgmsg(img)
-	publisher.publish(msg)
+    img = br.imgmsg_to_cv2(msg)
+    img = p.process(img)
+    msg = br.cv2_to_imgmsg(img)
+    publisher.publish(msg)
 
 if __name__ == "__main__":
 
-	rospy.init_node("preprocessor")
-	pub = rospy.Publisher("preprocess/output", Image, queue_size=0)
-	rospy.Subscriber("preprocess/input", Image, callback)
-	rospy.spin()
+    rospy.init_node("preprocessor")
+    pub = rospy.Publisher("preprocess/output", Image, queue_size=0)
+    rospy.Subscriber("preprocess/input", Image, callback)
+    rospy.spin()

@@ -10,8 +10,8 @@ pub = None
 n = navigator.Navigator()
 
 def callbackVel(msg):
-	driven = n.process(msg)
-	pub.publish(driven)
+    driven = n.process(msg)
+    pub.publish(driven)
 
 def callbackCorr(msg):
     n.correction(msg)
