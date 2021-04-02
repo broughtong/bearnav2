@@ -24,7 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
+#catkin_python_setup()
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -179,21 +179,9 @@ include_directories(
 #   scripts/my_python_script
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
-catkin_install_python(PROGRAMS
-    src/alignment/alignment-ros-1.py
-    src/alignment/alignment.py
-    src/alignment/histogram.py
-    src/alignment/backends/__init__.py
-    src/distance/distance-ros-1.py
-    src/gui/histogram-viz.py
-    src/gui/matches-viz.py
-    src/gui/live-viz.py
-    src/master/mapmaker.py
-    src/master/repeater.py
-    src/nav/nav-r1.py
-    #src/preprocessor/ros-1-wrapper.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+#catkin_install_python(PROGRAMS
+#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

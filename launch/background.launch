@@ -1,9 +1,0 @@
-<launch>
-    <group ns="bearnav2">
-        <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" />
-        <node pkg="bearnav2" type="alignment-ros-1.py" name="alignment" respawn="true" args="$(find bearnav2)/src/alignment/config.yaml -OO" />-->
-        <!--<node pkg="bearnav2" type="preprocess-ros-1.py" name="preprocess" respawn="true" args="$(find baz_pkg)/resources/map.pgm" />-->
-
-        <node pkg="bearnav2" type="run.py" name="preprocess" respawn="false" args="$(find bearnav2)/resources/map.pgmi -OO" />
-    </group>
-</launch>
