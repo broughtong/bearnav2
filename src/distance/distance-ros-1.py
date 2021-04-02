@@ -8,7 +8,6 @@ from bearnav2.srv import SetDist, SetDistResponse
 
 pub = None
 
-
 def callbackTwist(msg):
     driven, use = d.processT(msg)
     if use:
@@ -24,7 +23,6 @@ def handle_set_dist(dst):
     print("Distance set to " + str(driven))
     pub.publish(driven)
     return SetDistResponse()
-
 
 if __name__ == "__main__":
 

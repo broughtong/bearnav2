@@ -115,9 +115,9 @@ def getHistPeak(hist):
     maxPeak = 0
     maxOffset = 0
     for h in hist:
-            for key, value in h.items():
-                    if value > maxPeak:
-                            maxPeak = value
-                            maxOffset = key
+        for key, value in h.items():
+            if value > maxPeak:
+                maxPeak = value
+                maxOffset = key
     return maxOffset, maxPeak
 

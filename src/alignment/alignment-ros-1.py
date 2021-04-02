@@ -15,36 +15,36 @@ br = CvBridge()
 imgABuf = None
 
 def callbackA(msg):
-        global imgABuf
-        imgABuf = br.imgmsg_to_cv2(msg)
+    global imgABuf
+    imgABuf = br.imgmsg_to_cv2(msg)
 
 def callbackB(msg):
 
-        if imgABuf is None:
-                print("Still haven't rec'd cam!!")
+    if imgABuf is None:
+        print("Still haven't rec'd cam!!")
 
-        imgB = br.imgmsg_to_cv2(msg)
-        print("Getting alignment from imgs")
-        alignment, uncertainty, hist = a.process(imgABuf, imgB)
-        m = Alignment()
-        m.alignment = alignment
-        m.uncertainty = uncertainty
-        print("Sending corrections!")
-        pub.publish(m)
+    imgB = br.imgmsg_to_cv2(msg)
+    print("Getting alignment from imgs")
+    alignment, uncertainty, hist = a.process(imgABuf, imgB)
+    m = Alignment()
+    m.alignment = alignment
+    m.uncertainty = uncertainty
+    print("Sending corrections!")
+    pub.publish(m)
 
-        hm = IntList()
-        hm.data = hist
-        pub_hist.publish(hm)
+    hm = IntList()
+    hm.data = hist
+    pub_hist.publish(hm)
 
 if __name__ == "__main__":
 
-        alignmentConfig = sys.argv[1]
-        aligner = alignment.Alignment(alignerConfig)
+    alignmentConfig = sys.argv[1]
+    aligner = alignment.Alignment(alignerConfig)
 
-        rospy.init_node("alignment")
-        pub = rospy.Publisher("/alignment/output", Alignment, queue_size=0)
-        pub_hist = rospy.Publisher("/histogram", IntList, queue_size=0)
-        rospy.Subscriber("/alignment/inputA", Image, callbackA)
-        rospy.Subscriber("/alignment/inputB", Image, callbackB)
-        print("Ready...")
-        rospy.spin()
+    rospy.init_node("alignment")
+    pub = rospy.Publisher("/alignment/output", Alignment, queue_size=0)
+    pub_hist = rospy.Publisher("/histogram", IntList, queue_size=0)
+    rospy.Subscriber("/alignment/inputA", Image, callbackA)
+    rospy.Subscriber("/alignment/inputB", Image, callbackB)
+    print("Ready...")
+    rospy.spin()

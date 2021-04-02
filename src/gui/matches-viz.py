@@ -51,31 +51,31 @@ def cbImgB(msg):
 def cbFL(msg):
     if isPublishing():
         if imgA is None or imgB is None:
-                print("Waiting for images...")
+            print("Waiting for images...")
 
         #check imgs are current
         time = rospy.Time.now()
         aDiff = time - imgATS
         if ADiff < imgTimeout:
-                print("Not drawing feats on img A, too old")
+            print("Not drawing feats on img A, too old")
         bDiff = time - imgBTS
         if BDiff < imgTimeout:
-                print("Not drawing feats on img B, too old")
+            print("Not drawing feats on img B, too old")
 
         for idx in range(len(msg.xa)):
-                if msg.matched[idx]:
-                        cv2.rectangle(imgA, (xa-boxSize, ya-boxSize), (xa+boxSize, ya+boxSize), matchCol, 1)
-                else:
-                        cv2.rectangle(imgA, (xa-boxSize, ya-boxSize), (xa+boxSize, ya+boxSize), nomatchCol, 1)
+            if msg.matched[idx]:
+                cv2.rectangle(imgA, (xa-boxSize, ya-boxSize), (xa+boxSize, ya+boxSize), matchCol, 1)
+            else:
+                cv2.rectangle(imgA, (xa-boxSize, ya-boxSize), (xa+boxSize, ya+boxSize), nomatchCol, 1)
 
 if __name__ == "__main__":
 
-        rospy.init_node("feature_viz")
-        train_pub = rospy.Publisher("/image_viz/train", Image, queue_size=0)
-        current_pub = rospy.Publisher("/image_viz/current", Image, queue_size=0)
-        both_pub = rospy.Publisher("/image_viz/alignment", Image, queue_size=0)
-        rospy.Subscriber("/alignment/inputA", Image, cbImgA)
-        rospy.Subscriber("/alignment/inputB", Image, cbImgB)
-        rospy.Subscriber("/alignment/featureLocations", FeatureLocations, cbFL)
-        print("Feature viz ready...")
-        rospy.spin()
+    rospy.init_node("feature_viz")
+    train_pub = rospy.Publisher("/image_viz/train", Image, queue_size=0)
+    current_pub = rospy.Publisher("/image_viz/current", Image, queue_size=0)
+    both_pub = rospy.Publisher("/image_viz/alignment", Image, queue_size=0)
+    rospy.Subscriber("/alignment/inputA", Image, cbImgA)
+    rospy.Subscriber("/alignment/inputB", Image, cbImgB)
+    rospy.Subscriber("/alignment/featureLocations", FeatureLocations, cbFL)
+    print("Feature viz ready...")
+    rospy.spin()
