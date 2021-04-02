@@ -1,20 +1,38 @@
 <launch>
+
+    <!-- you should edit these parameters to point to your topics -->
+
+    <arg name="camera_topic" default="/camera_2/image_rect_color" />
+    <arg name="cmd_vel_topic" default="/cmd_vel" />
+    <arg name="joystick_topic" default="/husky_velocity_controller/cmd_vel" />
+    <arg name="odom_topic" default="/odometry/filtered" />
+
     <group ns="bearnav2">
         
         <!-- calculates which way to steer from images -->
-        <node pkg="bearnav2" type="alignment-ros-1.py" name="alignment" respawn="true" args="$(find bearnav2)/src/alignment/config.yaml -OO" />
+        <node pkg="bearnav2" type="alignment-ros-1.py" name="alignment" respawn="false" args="$(find bearnav2)/src/alignment/config.yaml -OO" />
 
         <!-- responsible for calculating how far the robot has travelled -->
-        <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" args="-OO">
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_topic)"/>
+            <param name="odom_topic" type="string" value="$(arg odom_topic)"/>
+        </node>
         
         <!-- node for creating maps -->
-        <node pkg="bearnav2" type="mapmaker-ros-1.py" name="mapmaker" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="mapmaker-ros-1.py" name="mapmaker" respawn="true" args="-OO">
+            <param name="camera_topic" type="string" value="$(arg camera_topic)"/>
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_topic)"/>
+        </node>
         
         <!-- node for repeating maps -->
-        <node pkg="bearnav2" type="repeater-ros-1.py" name="repeater" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="repeater-ros-1.py" name="repeater" respawn="true" args="-OO">
+            <param name="camera_topic" type="string" value="$(arg camera_topic)"/>
+        </node>
         
         <!-- actually does the talking to the robot to make it move -->
-        <node pkg="bearnav2" type="navigator-ros-1.py" name="navigator" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="navigator-ros-1.py" name="navigator" respawn="true" args="-OO">
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_topic)"/>
+        </node>
         
         <!-- image preprocessing -->
         <node pkg="bearnav2" type="preprocess-ros-1.py" name="preprocess" respawn="true" args="$(find bearnav2)/src/preprocessor/config.yaml" />

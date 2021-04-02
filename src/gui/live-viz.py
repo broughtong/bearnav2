@@ -55,6 +55,7 @@ if __name__ == "__main__":
     rospy.init_node("live_features")
     pub = rospy.Publisher("/live_viz", Image, queue_size=0)
     srv = Server(LiveFeaturesConfig, dr_callback)
-    rospy.Subscriber("/camera_2/image_rect_color", Image, img_cb)
+    camera_topic = rospy.get_param("~camera_topic")
+    rospy.Subscriber(camera_topic, Image, img_cb)
     #rospy.Subscriber("/camera_2/image_raw/compressed", CompressedImage, img_compressed_cb)
     rospy.spin()

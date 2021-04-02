@@ -39,7 +39,8 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
 
         print("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
+        self.camera_topic = rospy.get_param("~camera_topic")
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB)
 
         print("Connecting to alignment module")
         self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)

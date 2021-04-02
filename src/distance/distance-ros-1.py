@@ -28,9 +28,11 @@ if __name__ == "__main__":
 
     rospy.init_node("distance")
     use_twist = rospy.get_param("use_twist",'False')
+    cmd_vel_topic = rospy.get_param("~cmd_vel_topic")
+    odom_topic = rospy.get_param("~odom_topic")
     d = distance.Distance(use_twist)
     pub = rospy.Publisher("distance", Float64, queue_size=0) 
-    rospy.Subscriber("/odometry/filtered", Odometry, callbackOdom)
-    rospy.Subscriber("/cmd_vel",Twist , callbackTwist)
+    rospy.Subscriber(odom_topic, Odometry, callbackOdom)
+    rospy.Subscriber(cmd_vel_topic, Twist, callbackTwist)
     s = rospy.Service('set_dist', SetDist, handle_set_dist)
     rospy.spin()

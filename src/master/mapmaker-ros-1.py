@@ -4,7 +4,7 @@ import os
 import actionlib
 import cv2
 import rosbag
-from sensor_msgs.msg import Image, Joy
+from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from bearnav2.msg import MapMakerAction, MapMakerFeedback
@@ -34,13 +34,11 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
 
         print("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
+        self.camera_topic = rospy.get_param("~camera_topic")
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB)
 
         print("Subscibing to commands")
-        #self.joy_topic = "joy_teleop/joy"
-        #self.joy_sub = rospy.Subscriber(self.joy_topic, Joy, self.joyCB)
-        self.joy_topic = "cmd_vel"
-        self.joy_topic = "/husky_velocity_controller/cmd_vel"
+        self.joy_topic = rospy.get_param("~cmd_vel_topic")
         self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB)
 
         print("Starting mapmaker server")

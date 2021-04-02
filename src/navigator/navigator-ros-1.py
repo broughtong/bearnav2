@@ -22,7 +22,8 @@ def callbackReconfigure(config,level):
 
 if __name__ == "__main__":
     rospy.init_node("navigator")
-    pub = rospy.Publisher("/cmd_vel", Twist, queue_size=0)
+    cmd_vel_topic = rospy.get_param("~cmd_vel_topic")
+    pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=0)
     rospy.Subscriber("map_vel", Twist, callbackVel)
     rospy.Subscriber("correction_cmd", Alignment, callbackCorr)
     srv = Server(NavigatorConfig, callbackReconfigure)

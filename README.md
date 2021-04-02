@@ -16,6 +16,8 @@ Clone the repository into a ROS workspace and build.
 Once built, to run the system use `roslaunch bearnav2 bearnav2-gui.launch`.
 You can optionally run `roslaunch bearnav2 bearnav2-no-gui.launch` if these aren't required.
 
+Inside these launch files, set the four required variables at the top of the file, pointing to your robot's camera topic, cmd\_vel topic, joystick topic, and odometry topic.
+
 Don't forget to source your workspace!
 
 Once the package is running, you can begin mapping by publishing a message to the mapmaker module:
