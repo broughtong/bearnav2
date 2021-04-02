@@ -36,16 +36,16 @@ class ActionServer():
         print("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("/distance", Float64, self.distanceCB)
+        self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
 
         print("Subscibing to cameras")
         self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)
 
         print("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("/alignment/output", Alignment, self.alignCB)
-        self.al_1_pub = rospy.Publisher("/alignment/inputA", Image, queue_size=0)
-        self.al_2_pub = rospy.Publisher("/alignment/inputB", Image, queue_size=0)
-        self.al_pub = rospy.Publisher("/correction_cmd", Alignment, queue_size=0)
+        self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
+        self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=0)
+        self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=0)
+        self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
 
         print("Setting up published for commands")
         self.joy_topic = "map_vel"

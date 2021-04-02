@@ -12,8 +12,6 @@ from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 
 class ActionServer():
-    #_feedback = bearnav2.msg.MapMakerFeedback()
-    #_result = bearnav2.msg.MapMakerResult()
 
     def __init__(self):
 
@@ -26,14 +24,14 @@ class ActionServer():
         self.nextStep = 0
         self.bag = None
         self.lastDistance = None
-
+    
         print("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
 
         print("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("/distance", Float64, self.distanceCB)
+        self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
 
         print("Subscibing to cameras")
         self.cam_sub = rospy.Subscriber("/camera_2/image_rect_color", Image, self.imageCB)

@@ -71,11 +71,11 @@ def cbFL(msg):
 if __name__ == "__main__":
 
     rospy.init_node("feature_viz")
-    train_pub = rospy.Publisher("/image_viz/train", Image, queue_size=0)
-    current_pub = rospy.Publisher("/image_viz/current", Image, queue_size=0)
-    both_pub = rospy.Publisher("/image_viz/alignment", Image, queue_size=0)
-    rospy.Subscriber("/alignment/inputA", Image, cbImgA)
-    rospy.Subscriber("/alignment/inputB", Image, cbImgB)
-    rospy.Subscriber("/alignment/featureLocations", FeatureLocations, cbFL)
+    train_pub = rospy.Publisher("image_viz/train", Image, queue_size=0)
+    current_pub = rospy.Publisher("image_viz/current", Image, queue_size=0)
+    both_pub = rospy.Publisher("image_viz/alignment", Image, queue_size=0)
+    rospy.Subscriber("alignment/inputA", Image, cbImgA)
+    rospy.Subscriber("alignment/inputB", Image, cbImgB)
+    rospy.Subscriber("alignment/featureLocations", FeatureLocations, cbFL)
     print("Feature viz ready...")
     rospy.spin()

@@ -7,7 +7,6 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from bearnav2.msg import Alignment, IntList
 
-
 pub = None
 pub_hist = None
 aligner = None
@@ -42,9 +41,9 @@ if __name__ == "__main__":
     aligner = alignment.Alignment(alignerConfig)
 
     rospy.init_node("alignment")
-    pub = rospy.Publisher("/alignment/output", Alignment, queue_size=0)
-    pub_hist = rospy.Publisher("/histogram", IntList, queue_size=0)
-    rospy.Subscriber("/alignment/inputA", Image, callbackA)
-    rospy.Subscriber("/alignment/inputB", Image, callbackB)
+    pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
+    pub_hist = rospy.Publisher("histogram", IntList, queue_size=0)
+    rospy.Subscriber("alignment/inputA", Image, callbackA)
+    rospy.Subscriber("alignment/inputB", Image, callbackB)
     print("Ready...")
     rospy.spin()
