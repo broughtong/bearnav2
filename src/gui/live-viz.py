@@ -30,9 +30,11 @@ def dr_callback(config, level):
     return config
 
 def img_cb(msg):
-    detectImg(msg, 0)
+    if pub.get_num_connections():
+        detectImg(msg, 0)
 def img_compressed_cb(msg):
-    detectImg(msg, 1)
+    if pub.get_num_connections():
+        detectImg(msg, 1)
 
 def detectImg(msg, compressed):
     img = None

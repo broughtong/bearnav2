@@ -27,17 +27,29 @@ matchCol = [0, 255, 0]
 nomatchCol = [255, 0, 0]
 boxSize = 10
 
+def isPublishing():
+    if train_pub.get_num_connections():
+        return True
+    if current_pub.get_num_connections():
+        return True
+    if both_pub.get_num_connections():
+        return True
+    return False
+
 def cbImgA(msg):
-        global imgA
+    global imgA
+    if isPublishing():
         imgA = br.imgmsg_to_cv2(msg)
         imgATS = rospy.Time.now()
 
 def cbImgB(msg):
-        global imgB
+    global imgB
+    if isPublishing():
         imgB = br.imgmsg_to_cv2(msg)
         imgBTS = rospy.Time.now()
 
 def cbFL(msg):
+    if isPublishing():
         if imgA is None or imgB is None:
                 print("Waiting for images...")
 
@@ -55,11 +67,6 @@ def cbFL(msg):
                         cv2.rectangle(imgA, (xa-boxSize, ya-boxSize), (xa+boxSize, ya+boxSize), matchCol, 1)
                 else:
                         cv2.rectangle(imgA, (xa-boxSize, ya-boxSize), (xa+boxSize, ya+boxSize), nomatchCol, 1)
-
-def callback(msg):
-
-        msg = br.cv2_to_imgmsg(img, encoding="rgb8")
-        pub.publish(msg)
 
 if __name__ == "__main__":
 
