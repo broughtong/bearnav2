@@ -4,7 +4,7 @@
 
     <arg name="camera_topic" default="/camera_2/image_rect_color" />
     <arg name="cmd_vel_topic" default="/cmd_vel" />
-    <arg name="odom_topic" default="/odometry/filtered" />
+    <arg name="odom_topic" default="/husky_velocity_controller/odom" />
 
     <group ns="bearnav2">
         

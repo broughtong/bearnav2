@@ -29,33 +29,34 @@ class ActionServer():
         self.bag = None
         self.isRepeating = False
         self.fileList = []
+        self.endPosition = None
 
-        print("Waiting for services to become available...")
+        rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
 
-        print("Resetting distance node")
+        rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
         self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
 
-        print("Subscibing to cameras")
+        rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB)
 
-        print("Connecting to alignment module")
+        rospy.logdebug("Connecting to alignment module")
         self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
         self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=0)
         self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=0)
         self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
 
-        print("Setting up published for commands")
+        rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
         self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=0)
 
-        print("Starting repeater server")
+        rospy.logdebug("Starting repeater server")
         self.server = actionlib.SimpleActionServer("repeater", MapRepeaterAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
-        print("Server started, awaiting goal")
+        rospy.loginfo("Server started, awaiting goal")
 
     def imageCB(self, msg):
 
@@ -66,7 +67,7 @@ class ActionServer():
     def getClosestImg(self, dist):
 
         if len(self.fileList) < 1:
-            print("warning with map files")
+            ros.logwarn("Not many map files")
 
         closestFilename = None
         closestDistance = 999999
@@ -80,7 +81,7 @@ class ActionServer():
         
         if self.isRepeating:
             fn = os.path.join(self.mapName, closestFilename + ".jpg")
-            print("Opening : " + fn)
+            rospy.logdebug("Opening : " + fn)
             img = cv2.imread(fn)
             msg = self.br.cv2_to_imgmsg(img)
             self.al_2_pub.publish(msg)
@@ -92,32 +93,48 @@ class ActionServer():
             return
         if dist >= self.nextStep:
             if self.img is None:
-                print("Warning: no image received")
-            print("Triggered wp")
+                rospy.logwarn("Warning: no image received")
+            rospy.logdebug("Triggered wp")
             self.getClosestImg(dist)
             self.nextStep += self.mapStep
+
+        if dist >= self.endPosition:
+            self.isRepeating = False
 
         self.checkShutdown()
 
     def alignCB(self, msg):
-
-        print("Master says:")
-        print(msg)
         self.al_pub.publish(msg)
+
+    def goalValid(self, goal):
+        
+        if goal.mapName == "":
+            rospy.logwarn("Goal missing map name")
+            return False
+        if not os.path.isdir(goal.mapName):
+            rospy.logwarn("Can't find map directory")
+            return False
+        if not os.path.isfile(os.path.join(goal.mapName, goal.mapName + ".bag")):
+            rospy.logwarn("Can't find commands")
+            return False
+        if not os.path.isfile(os.path.join(goal.mapName, "params")):
+            rospy.logwarn("Can't find params")
+            return False
+
+        if goal.startPos < 0:
+            rospy.logwarn("Invalid (negative) start position). Use zero to start at the beginning") 
+            return False
+        if goal.startPos > goal.endPos:
+            rospy.logwarn("Start position greater than end position")
+            return False
+        return True
 
     def actionCB(self, goal):
 
-        print(goal)
-
-        if goal.mapName == "":
-            print("Missing mapname")
-
-        if not os.path.isdir(goal.mapName):
-            print("Can't find map directory")
-        if not os.path.isfile(os.path.join(goal.mapName, goal.mapName + ".bag")):
-            print("Can't find commands")
-        if not os.path.isfile(os.path.join(goal.mapName, "params")):
-            print("Can't find params")
+        rospy.loginfo("New goal received")
+        
+        if self.goalValid(goal) == False:
+            rospy.logwarn("Ignoring invalid goal")
 
         self.parseParams(os.path.join(goal.mapName, "params"))
         
@@ -130,23 +147,22 @@ class ActionServer():
             if ".jpg" in filename:
                 filename = ".".join(filename.split(".")[:-1])
                 self.fileList.append(filename)
-        print("Found %i map files" % (len(self.fileList)))
+        rospy.logdebug("Found %i map files" % (len(self.fileList)))
 
         #set distance to zero
-        print("Resetting distnace")
-        self.distance_reset_srv(0)
+        rospy.logdebug("Resetting distnace")
+        self.distance_reset_srv(goal.startPos)
+        self.endPosition = goal.endPos
 
-        print("Starting repeat")
+        rospy.logdebug("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
 
         #replay bag
         start = rospy.Time.now()
         sim_start = None
-        print("Starting repeat")
         self.isRepeating = True
         for topic, message, ts in self.bag.read_messages():
-            print(topic)
             now = rospy.Time.now()
             if sim_start is None:
                 sim_start = ts
@@ -156,10 +172,16 @@ class ActionServer():
                 if sim_time > real_time:
                     rospy.sleep(sim_time - real_time)
             self.joy_pub.publish(message)
+            if self.isRepeating == False:
+                break
             if rospy.is_shutdown():
                 break
         self.isRepeating = False
-        print("Complete")
+
+        rospy.info("Goal Complete")
+        result = bearnav2.msg.MapMakerResult()
+        result.success = True
+        self.server.set_succeeded(result)
          
     def parseParams(self, filename):
 
@@ -170,7 +192,7 @@ class ActionServer():
         for line in data:
             line = line.split(" ")
             if "stepSize" in line[0]:
-                print("Setting step size to: %s" % (line[1]))
+                rospy.logdebug("Setting step size to: %s" % (line[1]))
                 self.mapStep = float(line[1])
 
     def checkShutdown(self):

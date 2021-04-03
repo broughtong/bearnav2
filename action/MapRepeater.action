@@ -1,8 +1,11 @@
 #goal definition
+float64 startPos
+float64 endPos
 string mapName
 ---
 #result definition
 bool success
+string status
 ---
 #feedback
 string status

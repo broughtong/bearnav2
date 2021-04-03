@@ -27,7 +27,6 @@ class Alignment:
 
         if self.method in self.traditionalMethods: 
             from backends import traditional
-            print("Using sift for trad align")
             kpsA, desA = traditional.detect(imgA, self.method)
             kpsB, desB = traditional.detect(imgB, self.method)
 
