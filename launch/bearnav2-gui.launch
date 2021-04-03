@@ -40,15 +40,15 @@
         <!-- GUI stuff -->
 
         <!-- visualise information about the image alignment decision -->
-        <node pkg="bearnav2" type="histogram-viz.py" name="histogram-viz" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="histogram-viz.py" name="histogram_viz" respawn="true" args="-OO" />
 
         <!-- live visualisation of image features -->
-        <node pkg="bearnav2" type="live-viz.py" name="live-viz" respawn="true" args="-OO">
+        <node pkg="bearnav2" type="live-viz.py" name="live_viz" respawn="true" args="-OO">
             <param name="camera_topic" type="string" value="$(arg camera_topic)"/>
         </node>
 
         <!-- visualisation of image matches between map and camera -->
-        <node pkg="bearnav2" type="matches-viz.py" name="matches-viz" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="matches-viz.py" name="matches_viz" respawn="true" args="-OO" />
 
     </group>
 </launch>

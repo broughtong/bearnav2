@@ -37,8 +37,8 @@ def callbackB(msg):
 
 if __name__ == "__main__":
 
-    alignmentConfig = sys.argv[1]
-    aligner = alignment.Alignment(alignerConfig)
+    configFilename = sys.argv[1]
+    aligner = alignment.Alignment(configFilename)
 
     rospy.init_node("alignment")
     pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)

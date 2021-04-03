@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import yaml
 import histogram
-from backends import traditional, vgg
 import numpy as np
 
 class Alignment:
@@ -27,6 +26,7 @@ class Alignment:
         hist = []
 
         if self.method in self.traditionalMethods: 
+            from backends import traditional
             print("Using sift for trad align")
             kpsA, desA = traditional.detect(imgA, self.method)
             kpsB, desB = traditional.detect(imgB, self.method)
@@ -52,6 +52,7 @@ class Alignment:
                 peak = 0
 
         elif self.method == "VGG":
+            from backends import vgg
 
             print(imgA.shape, imgB.shape, "SHAPRES")
 

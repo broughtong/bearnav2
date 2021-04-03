@@ -5,6 +5,8 @@
 This ROS package allows a robot to be taught a path through an environment using a camera.
 The robot can then retrace this path at a future point in time, correcting any error.
 The theory can be found in the [linked paper.](http://eprints.lincoln.ac.uk/12501/7/surfnav_2010_JFR.pdf)
+The system works by replaying the robot commands from during the training phase, and applying slight adjustments to them according to how the camera looks compared to during the teaching phase.
+As long as the error is reasonable, the robot will converge to the original path.
 
 ## Installation
 

@@ -116,7 +116,8 @@ class ActionServer():
 
     def shutdown(self):
         self.isMapping = False
-        self.bag.close()
+        if self.bag is not None: 
+            self.bag.close()
         
         
     

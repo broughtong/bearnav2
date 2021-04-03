@@ -179,7 +179,8 @@ class ActionServer():
 
     def shutdown(self):
         self.isRepeating = False
-        self.bag.close()
+        if self.bag is not None:
+            self.bag.close()
 
 class ImageFetcherThread(threading.Thread):
     def __init__(self, location, idQueue, imgLock):
