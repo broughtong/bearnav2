@@ -5,7 +5,5 @@ string mapName
 ---
 #result definition
 bool success
-string status
 ---
 #feedback
-string status

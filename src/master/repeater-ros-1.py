@@ -9,14 +9,12 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterFeedback, Alignment
+from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 import numpy as np
 
 class ActionServer():
-    #_feedback = bearnav2.msg.MapMakerFeedback()
-    #_result = bearnav2.msg.MapMakerResult()
 
     def __init__(self):
 
@@ -135,6 +133,10 @@ class ActionServer():
         
         if self.goalValid(goal) == False:
             rospy.logwarn("Ignoring invalid goal")
+            result = MapRepeaterResult()
+            result.success = False
+            self.server.set_succeeded(result)
+            return
 
         self.parseParams(os.path.join(goal.mapName, "params"))
         
@@ -175,11 +177,16 @@ class ActionServer():
             if self.isRepeating == False:
                 break
             if rospy.is_shutdown():
-                break
+                rospy.loginfo("Node Shutdown")
+                result = MapRepeaterResult()
+                result.success = False
+                self.server.set_succeeded(result)
+                return
+
         self.isRepeating = False
 
         rospy.info("Goal Complete")
-        result = bearnav2.msg.MapMakerResult()
+        result = MapRepeaterResult()
         result.success = True
         self.server.set_succeeded(result)
          

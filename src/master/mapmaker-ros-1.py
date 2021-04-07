@@ -7,7 +7,7 @@ import rosbag
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapMakerAction, MapMakerFeedback
+from bearnav2.msg import MapMakerAction, MapMakerResult 
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 
@@ -25,26 +25,27 @@ class ActionServer():
         self.bag = None
         self.lastDistance = None
     
-        print("Waiting for services to become available...")
+        rospy.loginfo("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
+        rospy.loginfo("Starting...")
 
-        print("Resetting distance node")
+        rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
         self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
 
-        print("Subscibing to cameras")
+        rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB)
 
-        print("Subscibing to commands")
+        rospy.logdebug("Subscibing to commands")
         self.joy_topic = rospy.get_param("~cmd_vel_topic")
         self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB)
 
-        print("Starting mapmaker server")
+        rospy.logdebug("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
-        print("Server started, awaiting goal")
+        rospy.loginfo("Server started, awaiting goal")
 
     def imageCB(self, msg):
 
@@ -60,12 +61,9 @@ class ActionServer():
         self.lastDistance = dist
         if dist >= self.nextStep:
             if self.img is None:
-                print("Warning: no image received!")
-
-            print("Triggered wp")
+                rospy.logwarn("Warning: no image received!")
+            rospy.logdebug("Hit waypoint")
             self.nextStep += self.mapStep
-            print(self.mapName)
-            print(str(dist))
             filename = os.path.join(self.mapName, str(dist) + ".jpg")
             cv2.imwrite(filename, self.img)
 
@@ -74,36 +72,45 @@ class ActionServer():
     def joyCB(self, msg):
 
         if self.isMapping:
-            print("Adding joy")
+            rospy.logdebug("Adding joy")
             self.bag.write(self.joy_topic, msg) 
 
     def actionCB(self, goal):
 
-        print(goal)
-
         if self.img is None:
-            print("WARNING: NO IMAGE INPUT RECEIVED")
+            rospy.logerr("WARNING: no image coming through, ignoring")
+            result = MapMakerResult()
+            result.success = False
+            self.server.set_succeeded(result)
+            return
 
         if goal.mapName == "":
-            print("Missing mapname")
+            rospy.logwarn("Missing mapname, ignoring")
+            result = MapRepeaterResult()
+            result.success = False
+            self.server.set_succeeded(result)
+            return
 
         if goal.start == True:
-            print("Starting mapping")
             try:
                 os.mkdir(goal.mapName)
                 with open(goal.mapName + "/params", "w") as f:
                     f.write("stepSize: " + str(self.mapStep))
             except:
-                pass
+                rospy.logwarn("Unable to create map directory, ignoring")
+                result = MapRepeaterResult()
+                result.success = False
+                self.server.set_succeeded(result)
+                return
+            rospy.loginfo("Starting mapping")
             self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "w")
             self.mapName = goal.mapName
             self.isMapping = True
-
         else:
-            print("Creating final wp")
+            rospy.logdebug("Creating final wp")
             filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             cv2.imwrite(filename, self.img)
-            print("Stopping Mapping")
+            rospy.loginfo("Stopping Mapping")
             self.isMapping = False
             self.bag.close()
 
@@ -118,37 +125,7 @@ class ActionServer():
         self.isMapping = False
         if self.bag is not None: 
             self.bag.close()
-        
-        
-    
-"""
-
-    def execute_cb(self, goal):
-        success = True
-        
-        # append the seeds for the fibonacci sequence
-        self._feedback.sequence = []
-        self._feedback.sequence.append(0)
-        self._feedback.sequence.append(1)
-        
-        # start executing the action
-        for i in range(1, goal.order):
-            # check that preempt has not been requested by the client
-            if self._as.is_preempt_requested():
-                rospy.loginfo('%s: Preempted' % self._action_name)
-                self._as.set_preempted()
-                success = False
-                break
-            self._feedback.sequence.append(self._feedback.sequence[i] + self._feedback.sequence[i-1])
-            # publish the feedback
-            self._as.publish_feedback(self._feedback)
-          
-        if success:
-            self._result.sequence = self._feedback.sequence
-            self._as.set_succeeded(self._result)
-   """
-
-
+       
 if __name__ == '__main__':
     rospy.init_node("mapmaker_server")
     server = ActionServer()

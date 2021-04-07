@@ -7,4 +7,3 @@ bool saveImgsForViz
 bool success
 ---
 #feedback
-string status
