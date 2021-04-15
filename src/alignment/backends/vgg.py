@@ -48,11 +48,14 @@ def getDiff(a, b):
     diff = 0
     flatA = a.flat
     flatB = b.flat
-    for i in range(len(flatA)):
-        if square == False:
-            diff += abs(flatA[i] - flatB[i])
-    else:
-            diff += abs(flatA[i] - flatB[i]) ** 2
+    #for i in range(len(flatA)):
+    #    if square == False:
+    #        diff += abs(flatA[i] - flatB[i])
+    #else:
+    #        diff += abs(flatA[i] - flatB[i]) ** 2
+    diff = np.subtract(flatA, flatB)
+    diff = np.abs(diff)
+    diff = np.sum(diff)
     return diff
 
 def eraseBottom(img):
