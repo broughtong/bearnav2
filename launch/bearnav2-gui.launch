@@ -34,7 +34,7 @@
         </node>
         
         <!-- image preprocessing -->
-        <node pkg="bearnav2" type="preprocess-ros-1.py" name="preprocess" respawn="true" args="$(find bearnav2)/src/preprocessor/config.yaml" />
+        <node pkg="bearnav2" type="preprocess-ros-1.py" name="preprocess" respawn="true" args="-OO" />
 
 
         <!-- GUI stuff -->

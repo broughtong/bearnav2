@@ -7,8 +7,8 @@ class Alignment:
 
     def __init__(self, configFilename):
 
-        self.readConfig(configFilename)
         self.method = "SIFT"
+        self.readConfig(configFilename)
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
 
     def readConfig(self, filename):
