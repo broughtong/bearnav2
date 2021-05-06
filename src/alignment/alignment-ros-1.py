@@ -37,18 +37,20 @@ def callbackB(msg):
 
 def config_cb(config, level):
     global aligner
-    aligner.method = config.method
+    aligner.method = config.feature_type
     return config
 
 if __name__ == "__main__":
 
+    rospy.init_node("alignment")
     aligner = alignment.Alignment()
     srv = Server(AlignmentConfig, config_cb)
 
-    rospy.init_node("alignment")
     pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
     pub_hist = rospy.Publisher("histogram", IntList, queue_size=0)
+
     rospy.Subscriber("alignment/inputA", Image, callbackA)
     rospy.Subscriber("alignment/inputB", Image, callbackB)
+
     rospy.logdebug("Aligner Ready...")
     rospy.spin()
