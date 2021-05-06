@@ -105,6 +105,8 @@ add_action_files(
  generate_dynamic_reconfigure_options(
    cfg/Navigator.cfg
    cfg/LiveFeatures.cfg
+   cfg/Alignment.cfg
+   cfg/Preprocessor.cfg
 #   cfg/DynReconf2.cfg
  )
 

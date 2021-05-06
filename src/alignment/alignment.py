@@ -5,21 +5,11 @@ import numpy as np
 
 class Alignment:
 
-    def __init__(self, configFilename):
+    def __init__(self):
 
-        self.method = "SIFT"
-        self.readConfig(configFilename)
+        self.method = "BRISK"
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
-
-    def readConfig(self, filename):
-
-        data = {}
-        with open(filename, "r") as file:
-            data = yaml.safe_load(file)
-
-        for key in data.keys():
-            self.key = data[key]
-                
+               
     def process(self, imgA, imgB):
 
         peak, uncertainty = 0, 0

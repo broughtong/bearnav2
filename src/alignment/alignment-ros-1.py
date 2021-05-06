@@ -6,6 +6,8 @@ import alignment
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from bearnav2.msg import Alignment, IntList
+from dynamic_reconfigure.server import Server
+from bearnav2.cfg import AlignmentConfig
 
 pub = None
 pub_hist = None
@@ -33,10 +35,15 @@ def callbackB(msg):
     hm.data = hist
     pub_hist.publish(hm)
 
+def config_cb(config, level):
+    global aligner
+    aligner.method = config.method
+    return config
+
 if __name__ == "__main__":
 
-    configFilename = sys.argv[1]
-    aligner = alignment.Alignment(configFilename)
+    aligner = alignment.Alignment()
+    srv = Server(AlignmentConfig, config_cb)
 
     rospy.init_node("alignment")
     pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
