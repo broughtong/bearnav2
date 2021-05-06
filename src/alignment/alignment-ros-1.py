@@ -20,15 +20,13 @@ def callbackA(msg):
 def callbackB(msg):
 
     if imgABuf is None:
-        print("Still haven't rec'd cam!!")
+        rospy.logwarn("Aligner still awaiting cam A!")
 
     imgB = br.imgmsg_to_cv2(msg)
-    print("Getting alignment from imgs")
-    alignment, uncertainty, hist = a.process(imgABuf, imgB)
+    alignment, uncertainty, hist = aligner.process(imgABuf, imgB)
     m = Alignment()
     m.alignment = alignment
     m.uncertainty = uncertainty
-    print("Sending corrections!")
     pub.publish(m)
 
     hm = IntList()
@@ -45,5 +43,5 @@ if __name__ == "__main__":
     pub_hist = rospy.Publisher("histogram", IntList, queue_size=0)
     rospy.Subscriber("alignment/inputA", Image, callbackA)
     rospy.Subscriber("alignment/inputB", Image, callbackB)
-    print("Ready...")
+    rospy.logdebug("Aligner Ready...")
     rospy.spin()

@@ -96,7 +96,7 @@ class ActionServer():
             self.getClosestImg(dist)
             self.nextStep += self.mapStep
 
-        if dist >= self.endPosition:
+        if self.endPosition != 0 and dist >= self.endPosition:
             self.isRepeating = False
 
         self.checkShutdown()
@@ -175,6 +175,7 @@ class ActionServer():
                     rospy.sleep(sim_time - real_time)
             self.joy_pub.publish(message)
             if self.isRepeating == False:
+                rospy.loginfo("stopped!")
                 break
             if rospy.is_shutdown():
                 rospy.loginfo("Node Shutdown")
@@ -185,7 +186,7 @@ class ActionServer():
 
         self.isRepeating = False
 
-        rospy.info("Goal Complete")
+        rospy.loginfo("Goal Complete!")
         result = MapRepeaterResult()
         result.success = True
         self.server.set_succeeded(result)
