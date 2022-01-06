@@ -14,14 +14,23 @@ rectSize = 8
 rectCol = [255, 0, 0] #BGR
 
 currentType = 0
-featureTypes = [
-    cv2.SIFT_create(),
-    cv2.xfeatures2d.SURF_create(),
-    cv2.KAZE_create(),
-    cv2.AKAZE_create(),
-    cv2.BRISK_create(),
-    cv2.ORB_create()
-]
+try:
+    featureTypes = [
+        cv2.SIFT_create(),
+        cv2.xfeatures2d.SURF_create(),
+        cv2.KAZE_create(),
+        cv2.AKAZE_create(),
+        cv2.BRISK_create(),
+        cv2.ORB_create()
+    ]
+except Exception as e:
+    featureTypes = [
+        cv2.SIFT_create(),
+        cv2.KAZE_create(),
+        cv2.AKAZE_create(),
+        cv2.BRISK_create(),
+        cv2.ORB_create()
+    ]
 
 def dr_callback(config, level):
     global currentType
@@ -53,7 +62,7 @@ def detectImg(msg, compressed):
 
 if __name__ == "__main__":
     rospy.init_node("live_features")
-    pub = rospy.Publisher("/live_viz", Image, queue_size=0)
+    pub = rospy.Publisher("live_viz", Image, queue_size=0)
     srv = Server(LiveFeaturesConfig, dr_callback)
     camera_topic = rospy.get_param("~camera_topic")
     rospy.Subscriber(camera_topic, Image, img_cb)

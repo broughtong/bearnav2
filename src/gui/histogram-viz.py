@@ -33,7 +33,7 @@ def callback(msg):
 if __name__ == "__main__":
 
     rospy.init_node("histogram_viz")
-    pub = rospy.Publisher("/histogram_viz", Image, queue_size=0)
-    rospy.Subscriber("/histogram", IntList, callback)
+    pub = rospy.Publisher("histogram_viz", Image, queue_size=0)
+    rospy.Subscriber("histogram", IntList, callback)
     print("Histogram viz ready...")
     rospy.spin()
