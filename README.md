@@ -40,3 +40,9 @@ Simply fill in the mapname field and your robot will begin to re-trace the path.
  - Maps are now streamed from disk, therefore don't require waiting for them to be loaded, and can be much larger
 
  - Dropped GUI dependencies
+
+## Principles
+### Mapping
+![Mapping](images/Mapping.svg)
+### Navigating
+![Navigating](images/Navigating.svg)
