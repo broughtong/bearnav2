@@ -15,8 +15,8 @@ Clone the repository into a ROS workspace and build.
 
 ## Usage
 
-Once built, to run the system use `roslaunch bearnav2 bearnav2-gui.launch`.
-You can optionally run `roslaunch bearnav2 bearnav2-no-gui.launch` if these aren't required.
+Once built, to run the system use `roslaunch bearnav2 bearnav2-gui.launch`. May run slower, but provides more feedback using gui interface.
+You can optionally run `roslaunch bearnav2 bearnav2-no-gui.launch` if these aren't required. Faster as no additional computations are done.
 
 Inside these launch files, set the three required variables at the top of the file, pointing to your robot's camera topic, cmd\_vel topic, and odometry topic.
 
@@ -25,15 +25,26 @@ Don't forget to source your workspace!
 Once the package is running, you can begin mapping by publishing a message to the mapmaker module:
 
 `rostopic pub /bearnav2/mapmaker/goal [tab][tab]`
+Fill in the mapName, for loading the map later!
+Set start to `true`
+Publish the message (enter) to start mapping (you can Ctrl+C this publish and it will not stop the mapping).
+After you finnish your path, publish the same message with same mapName, but change start to `false`.
 
-Make sure you have the mapname (filename) set, for loading the map later!
-Publish the message with start set to `True` to begin, and then publish another with `False` when you have finished your path.
+Note: Every line of the message above mapName is internal stuff for ROS, so do not worry about it.
 
 To replay a map, run:
 
 `rostopic pub /bearnav2/repeater/goal [tab][tab]`
 
 Simply fill in the mapname field and your robot will begin to re-trace the path.
+
+You can start following the map at different point by setting startPos to how far (in meters) from the beginning you want to start.
+endPos is how far (in meters) from the beginning you want to end.
+
+Note: Every line of the message above mapName is internal stuff for ROS, so do not worry about it.
+
+
+
 
 ## Improvements
 
