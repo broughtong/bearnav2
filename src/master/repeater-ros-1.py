@@ -65,7 +65,7 @@ class ActionServer():
     def getClosestImg(self, dist):
 
         if len(self.fileList) < 1:
-            ros.logwarn("Not many map files")
+            rospy.logwarn("Not many map files")
 
         closestFilename = None
         closestDistance = 999999
@@ -76,7 +76,7 @@ class ActionServer():
             if diff < closestDistance:
                 closestDistance = diff
                 closestFilename = filename
-        
+
         if self.isRepeating:
             fn = os.path.join(self.mapName, closestFilename + ".jpg")
             rospy.logdebug("Opening : " + fn)
@@ -85,7 +85,6 @@ class ActionServer():
             self.al_2_pub.publish(msg)
 
     def distanceCB(self, msg):
-
         dist = msg.data
         if self.isRepeating == False:
             return
@@ -155,6 +154,7 @@ class ActionServer():
         rospy.logdebug("Resetting distnace")
         self.distance_reset_srv(goal.startPos)
         self.endPosition = goal.endPos
+        self.nextStep = 0
 
         rospy.logdebug("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
