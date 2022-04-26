@@ -22,7 +22,6 @@ class Alignment:
             self.model.eval()
             self.to_tensor = transforms.ToTensor()
 
-
     def process(self, imgA, imgB):
 
         peak, uncertainty = 0, 0
