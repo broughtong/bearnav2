@@ -32,6 +32,9 @@ class Alignment:
             kpsA, desA = traditional.detect(imgA, self.method)
             kpsB, desB = traditional.detect(imgB, self.method)
 
+            if kpsA is None or kpsB is None:
+                return peak, 0, hist
+
             displacements = traditional.match(kpsA, desA, kpsB, desB)
             displacements = [int(x) for x in displacements]
 
@@ -78,12 +81,10 @@ class Alignment:
                     m1 = IntList(data=out)
                     m2 = Alignment(alignment=0, uncertainty=0)
         
+        rospy.logwarn("No image matching scheme selected! Not correcting heading!")
         return peak, 0, hist
-
 
     def image_to_tensor(self, msg):
         im = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, -1)
         image_tensor = self.to_tensor(im).unsqueeze(0).to(self.device)
         return image_tensor
-
-

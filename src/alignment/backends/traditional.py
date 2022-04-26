@@ -50,8 +50,8 @@ except:
 def detect(img, featureType):
 
     if featureType not in featureTypes:
-        rospy.logwarn("Feature type unknown or unavailable on this machine")
-        return
+        rospy.logwarn("Feature type unknown or unavailable on this machine/installation. Not correcting heading!")
+        return None, None
 
     kps, des = featureTypes[featureType].detectAndCompute(img, None)
     return kps, des
