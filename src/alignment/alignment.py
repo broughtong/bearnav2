@@ -11,7 +11,7 @@ class Alignment:
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
         
         if self.method == "SIAM":
-            from backends.siam_model import Siamese, load_model, get_custom_CNN
+            from backends.siam_model import Siamese, load_model, get_parametrized_model
             import torch as t
             self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
             # init neural network
