@@ -15,10 +15,9 @@ class Alignment:
             import torch as t
             self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
             # init neural network
-            backbone = get_custom_CNN()
-            model = Siamese(backbone).to(self.device)
+            model = get_parametrized_model(False, 3, 256, 0, 3, self.device)
             file_path = os.path.dirname(os.path.abspath(__file__))
-            self.model = load_model(model, os.path.join(file_path, "./backend/model_47.pt")).to(self.device)
+            self.model = load_model(model, os.path.join(file_path, "./backend/model_eunord.pt")).to(self.device)
             self.model.eval()
             self.to_tensor = transforms.ToTensor()
 
@@ -74,13 +73,11 @@ class Alignment:
                     curr_tensor = self.image_to_tensor(imgB)
                     map_tensor = self.image_to_tensor(imgA)
                     print("Passing tensors:", map_tensor.shape, curr_tensor.shape)
-                    hist = self.model(map_tensor, curr_tensor)
-                    peak = 0
+                    hist = self.model(map_tensor, curr_tensor).cpu().numpy()
+                    peak = int(np.argmax(hist) - hist//2)
+                    # TODO: interpolate the histogram!
                     print("Outputed histogram", hist.shape)
-                    out = list(conv_tensor.cpu().numpy())
-                    m1 = IntList(data=out)
-                    m2 = Alignment(alignment=0, uncertainty=0)
-        
+            return peak, 0, hist 
         rospy.logwarn("No image matching scheme selected! Not correcting heading!")
         return peak, 0, hist
 
