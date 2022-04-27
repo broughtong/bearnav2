@@ -2,6 +2,8 @@
 import yaml
 import histogram
 import numpy as np
+import os
+from torchvision import transforms
 
 class Alignment:
 
@@ -17,9 +19,10 @@ class Alignment:
             # init neural network
             model = get_parametrized_model(False, 3, 256, 0, 3, self.device)
             file_path = os.path.dirname(os.path.abspath(__file__))
-            self.model = load_model(model, os.path.join(file_path, "./backend/model_eunord.pt")).to(self.device)
+            self.model = load_model(model, os.path.join(file_path, "backends/model_eunord.pt")).to(self.device)
             self.model.eval()
             self.to_tensor = transforms.ToTensor()
+            print("Neural network sucessfully initialized!")
 
     def process(self, imgA, imgB):
 
