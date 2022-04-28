@@ -3,7 +3,13 @@ import yaml
 import histogram
 import numpy as np
 import os
+import rospy
 from torchvision import transforms
+
+
+PAD = 32
+PEAK_MULT = 8
+
 
 class Alignment:
 
@@ -22,10 +28,12 @@ class Alignment:
             self.model = load_model(model, os.path.join(file_path, "backends/model_eunord.pt")).to(self.device)
             self.model.eval()
             self.to_tensor = transforms.ToTensor()
-            print("Neural network sucessfully initialized!")
+            self.resize = transforms.Resize(320)
+            rospy.logwarn("Neural network sucessfully initialized!")
 
     def process(self, imgA, imgB):
 
+        rospy.logwarn("recieved pair of imgs")
         peak, uncertainty = 0, 0
         hist = []
 
@@ -70,21 +78,25 @@ class Alignment:
             print(peak, val)
 
         elif self.method == "SIAM":
+            import torch as t
             with t.no_grad():
-                if self.map_tensor is not None:
-                    rospy.loginfo('Image pair received ...')
-                    curr_tensor = self.image_to_tensor(imgB)
-                    map_tensor = self.image_to_tensor(imgA)
-                    print("Passing tensors:", map_tensor.shape, curr_tensor.shape)
-                    hist = self.model(map_tensor, curr_tensor).cpu().numpy()
-                    peak = int(np.argmax(hist) - hist//2)
-                    # TODO: interpolate the histogram!
-                    print("Outputed histogram", hist.shape)
-            return peak, 0, hist 
+                rospy.loginfo('Image pair received ...')
+                curr_tensor = self.image_to_tensor(imgB)
+                map_tensor = self.image_to_tensor(imgA)
+                # rospy.loginfo("Passing tensors:", map_tensor.shape, curr_tensor.shape)
+                hist = self.model(map_tensor, curr_tensor, padding=PAD)
+                hist_out = t.softmax(hist, dim=-1)
+                hist = hist.cpu().numpy()
+                peak = (np.argmax(hist) - hist.size/2.0) * PEAK_MULT
+                rospy.logwarn("images has been aligned with histogram:")
+                rospy.logwarn(str(list(hist_out)))
+                # TODO: interpolate the histogram!
+                # rospy.loginfo("Outputed histogram", hist.shape)
+            return peak, 0, [] 
         rospy.logwarn("No image matching scheme selected! Not correcting heading!")
         return peak, 0, hist
 
     def image_to_tensor(self, msg):
-        im = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, -1)
-        image_tensor = self.to_tensor(im).unsqueeze(0).to(self.device)
+        msg = np.array(msg)
+        image_tensor = self.resize(self.to_tensor(msg).unsqueeze(0)).to(self.device)
         return image_tensor

@@ -2,9 +2,10 @@
 
     <!-- you should edit these parameters to point to your topics -->
 
-    <arg name="camera_topic" default="/camera_2/image_rect_color" />
-    <arg name="cmd_vel_topic" default="/husky_velocity_controller/cmd_vel" />
-    <arg name="odom_topic" default="/odometry/filtered" />
+    <arg name="camera_topic" default="/camera_front/image_color" />
+    <arg name="cmd_vel_pub" default="/nav/cmd_vel" />
+    <arg name="cmd_vel_sub" default="/husky_velocity_controller/cmd_vel" />
+    <arg name="odom_topic" default="/husky_velocity_controller/odom" />
 
     <group ns="bearnav2">
         
@@ -13,14 +14,14 @@
 
         <!-- responsible for calculating how far the robot has travelled -->
         <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" args="-OO">
-            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_topic)"/>
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_sub)"/>
             <param name="odom_topic" type="string" value="$(arg odom_topic)"/>
         </node>
         
         <!-- node for creating maps -->
         <node pkg="bearnav2" type="mapmaker-ros-1.py" name="mapmaker" respawn="true" args="-OO">
             <param name="camera_topic" type="string" value="$(arg camera_topic)"/>
-            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_topic)"/>
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_sub)"/>
         </node>
         
         <!-- node for repeating maps -->
@@ -30,7 +31,7 @@
         
         <!-- actually does the talking to the robot to make it move -->
         <node pkg="bearnav2" type="navigator-ros-1.py" name="navigator" respawn="true" args="-OO">
-            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_topic)"/>
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_pub)"/>
         </node>
         
         <!-- image preprocessing -->

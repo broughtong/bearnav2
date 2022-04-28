@@ -58,9 +58,10 @@ class ActionServer():
 
     def imageCB(self, msg):
 
-        self.img = self.br.imgmsg_to_cv2(msg)
-        self.al_1_pub.publish(msg)
-        self.checkShutdown()
+        if self.isRepeating:
+            self.img = self.br.imgmsg_to_cv2(msg)
+            self.al_1_pub.publish(msg)
+            self.checkShutdown()
 
     def getClosestImg(self, dist):
 

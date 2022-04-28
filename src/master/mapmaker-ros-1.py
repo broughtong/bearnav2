@@ -92,6 +92,8 @@ class ActionServer():
             return
 
         if goal.start == True:
+            self.isMapping = False
+            self.img = None
             try:
                 os.mkdir(goal.mapName)
                 with open(goal.mapName + "/params", "w") as f:
@@ -105,6 +107,9 @@ class ActionServer():
             rospy.loginfo("Starting mapping")
             self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "w")
             self.mapName = goal.mapName
+            self.nextStep = 0
+            self.lastDistance = None
+            self.distance_reset_srv(0)
             self.isMapping = True
         else:
             rospy.logdebug("Creating final wp")
@@ -113,9 +118,6 @@ class ActionServer():
             rospy.loginfo("Stopping Mapping")
             self.isMapping = False
             self.bag.close()
-
-        #set distance to zero
-        self.distance_reset_srv(0)
          
     def checkShutdown(self):
         if self.server.is_preempt_requested():
