@@ -38,8 +38,8 @@ def callbackB(msg):
 
 def config_cb(config, level):
     global aligner
-    # aligner.method = config.feature_type
-    aligner.method = "SIAM"
+     aligner.method = config.feature_type
+    #aligner.method = "SIAM"
     return config
 
 if __name__ == "__main__":
