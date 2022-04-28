@@ -8,7 +8,10 @@ from torchvision import transforms
 
 
 PAD = 32
-PEAK_MULT = 8
+PEAK_MULT = 8.0
+NEWTORK_DIVISION = 8.0
+RESIZE_H = 320
+RESIZE_W = 512
 
 
 class Alignment:
@@ -28,7 +31,7 @@ class Alignment:
             self.model = load_model(model, os.path.join(file_path, "backends/model_eunord.pt")).to(self.device)
             self.model.eval()
             self.to_tensor = transforms.ToTensor()
-            self.resize = transforms.Resize(320)
+            self.resize = transforms.Resize(RESIZE_H)
             rospy.logwarn("Neural network sucessfully initialized!")
 
     def process(self, imgA, imgB):
@@ -87,10 +90,13 @@ class Alignment:
                 hist = self.model(map_tensor, curr_tensor, padding=PAD)
                 hist_out = t.softmax(hist, dim=-1)
                 hist = hist.cpu().numpy()
-                peak = (np.argmax(hist) - hist.size/2.0) * PEAK_MULT
+
                 rospy.logwarn("images has been aligned with histogram:")
-                rospy.logwarn(str(list(hist_out)))
+                # rospy.logwarn(str(list(hist_out)))
                 # TODO: interpolate the histogram!
+                f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist, kind="cubic")
+                interp_hist = f(np.arange(0, RESIZE_W))
+                peak = (np.argmax(interp_hist) - interp_hist.size/2.0) * PEAK_MULT
                 # rospy.loginfo("Outputed histogram", hist.shape)
             return peak, 0, [] 
         rospy.logwarn("No image matching scheme selected! Not correcting heading!")
