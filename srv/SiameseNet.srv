@@ -1,0 +1,4 @@
+Image[] map_images
+Image[] live_images
+---
+Histogram[] histograms

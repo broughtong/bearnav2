@@ -9,11 +9,13 @@ from scipy import interpolate
 import time
 from backends import traditional
 
-PAD = 32
-PEAK_MULT = 0.5
+PEAK_MULT = 1.0
 NEWTORK_DIVISION = 8.0
-RESIZE_H = 320
 RESIZE_W = 512
+
+
+def numpy_softmax(arr):
+    return np.exp(arr) / np.sum(np.exp(arr))
 
 
 class Alignment:
@@ -22,19 +24,9 @@ class Alignment:
 
         self.method = "SIAM"
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
-        rospy.logwarn(self.method) 
+        rospy.logwarn(self.method)
         if self.method == "SIAM":
-            from backends.siam_model import Siamese, load_model, get_parametrized_model
-            import torch as t
-            self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
-            # init neural network
-            model = get_parametrized_model(False, 3, 256, 0, 3, self.device)
-            file_path = os.path.dirname(os.path.abspath(__file__))
-            self.model = load_model(model, os.path.join(file_path, "backends/model_eunord.pt")).to(self.device)
-            self.model.eval()
-            self.to_tensor = transforms.ToTensor()
-            self.resize = transforms.Resize(RESIZE_H)
-            rospy.logwarn("Neural network sucessfully initialized!")
+            # TODO: init siamese service here
 
     def process(self, imgA, imgB):
 
@@ -86,32 +78,19 @@ class Alignment:
             print(peak, val)
 
         elif self.method == "SIAM":
-            import torch as t
-            with t.no_grad():
-                rospy.loginfo('Image pair received ...')
-                start = time.time()
-                curr_tensor = self.image_to_tensor(imgB)
-                map_tensor = self.image_to_tensor(imgA)
-                # rospy.loginfo("Passing tensors:", map_tensor.shape, curr_tensor.shape)
-                hist = self.model(map_tensor, curr_tensor, padding=PAD)
-                hist_out = t.softmax(hist, dim=-1)
-                hist = hist.cpu().numpy()
-                rospy.logwarn(str(hist_out))
-                rospy.logwarn("images has been aligned with histogram:")
-                # rospy.logwarn(str(list(hist_out)))
-                # TODO: interpolate the histogram!
-                f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist, kind="cubic")
-                interp_hist = f(np.arange(0, RESIZE_W))
-                peak = (np.argmax(interp_hist) - interp_hist.size/2.0) * PEAK_MULT
-                rospy.logwarn("Peak is: " + str(peak))
-                end = time.time()
-                rospy.logwarn("The alignment took: " + str(end - start))
-                # rospy.loginfo("Outputed histogram", hist.shape)
+            rospy.loginfo('Image pair received ...')
+            start = time.time()
+            # rospy.loginfo("Passing tensors:", map_tensor.shape, curr_tensor.shape)
+            hist = # TODO: implement calling the service here
+            rospy.loginfo("images has been aligned with histogram:")
+            rospy.loginfo(str(hist))
+            f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist, kind="cubic")
+            interp_hist = f(np.arange(0, RESIZE_W))
+            peak = (np.argmax(interp_hist) - interp_hist.size/2.0) * PEAK_MULT
+            rospy.logwarn("Peak is: " + str(peak))
+            end = time.time()
+            rospy.logwarn("The alignment took: " + str(end - start))
+            # rospy.loginfo("Outputed histogram", hist.shape)
             return peak, 0, [] 
         rospy.logwarn("No image matching scheme selected! Not correcting heading!")
         return peak, 0, hist
-
-    def image_to_tensor(self, msg):
-        msg = np.array(msg)
-        image_tensor = self.resize(self.to_tensor(msg).unsqueeze(0)).to(self.device)
-        return image_tensor
