@@ -1,4 +1,4 @@
-Image[] map_images
-Image[] live_images
+ImageList map_images
+ImageList live_images
 ---
 Histogram[] histograms

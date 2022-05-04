@@ -5,6 +5,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 from bearnav2.srv import SetDist, SetDistResponse
+from bearnav2.msg import ImageList
 
 pub = None
 
@@ -14,6 +15,11 @@ def callbackTwist(msg):
         pub.publish(driven)
 
 def callbackOdom(msg):
+    driven, use = d.processO(msg)
+    if use:
+        pub.publish(driven)
+
+def callbackCamera(msg):
     driven, use = d.processO(msg)
     if use:
         pub.publish(driven)
@@ -34,5 +40,6 @@ if __name__ == "__main__":
     pub = rospy.Publisher("distance", Float64, queue_size=0) 
     rospy.Subscriber(odom_topic, Odometry, callbackOdom)
     rospy.Subscriber(cmd_vel_topic, Twist, callbackTwist)
+    rospy.Subscriber("map_images", ImageList, callbackCamera)  # TODO: make name of topic as argument
     s = rospy.Service('set_dist', SetDist, handle_set_dist)
     rospy.spin()

@@ -16,8 +16,8 @@ imgABuf = None
 
 
 def process_imgs(req):
-    imgs1 = req.map_images
-    imgs2 = req.live_images
+    imgs1 = req.map_images.data
+    imgs2 = req.live_images.data
     net_out = siam.forward(imgs1, imgs2)
     hists = [Histogram(hist) for hist in net_out]
     return SiameseNetResponse(hists)
