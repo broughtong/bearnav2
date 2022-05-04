@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import time
 import rospy
 import os
 import actionlib
@@ -20,7 +21,7 @@ class ActionServer():
         self.isMapping = False
         self.img = None
         self.mapName = ""
-        self.mapStep = 0.3
+        self.mapStep = 1.0
         self.nextStep = 0
         self.bag = None
         self.lastDistance = None
@@ -66,6 +67,7 @@ class ActionServer():
             self.nextStep += self.mapStep
             filename = os.path.join(self.mapName, str(dist) + ".jpg")
             cv2.imwrite(filename, self.img)
+            rospy.logwarn("Image saved %s" % (filename))
 
         self.checkShutdown()
 
@@ -116,6 +118,7 @@ class ActionServer():
             filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             cv2.imwrite(filename, self.img)
             rospy.loginfo("Stopping Mapping")
+            time.sleep(2)
             self.isMapping = False
             self.bag.close()
          
