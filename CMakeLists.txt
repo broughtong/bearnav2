@@ -61,12 +61,15 @@ add_message_files(
     Alignment.msg
     IntList.msg
     FeatureLocations.msg
+    ImageList.msg
+    Histogram.msg
 )
 
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
    SetDist.srv
+   SiameseNet.srv
  )
 
 ## Generate actions in the 'action' folder

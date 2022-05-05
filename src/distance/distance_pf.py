@@ -26,8 +26,9 @@ class DistancePF:
         rospy.wait_for_service('siamese_network')
         self.nn_service = rospy.ServiceProxy('siamese_network', SiameseNet)
 
-    def set(self, dst):
-        self.particles = np.ones(self.particles_num) * dst
+    def set(self, dst, var=3):
+        self.particles = np.ones(self.particles_num) * dst +\
+                         np.random.normal(loc=0, scale=var, size=self.particles_num)
         self.motion_step = True
         self.last_odom = None
         self.last_time = None

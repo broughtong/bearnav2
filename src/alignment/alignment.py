@@ -8,6 +8,9 @@ from torchvision import transforms
 from scipy import interpolate
 import time
 from backends import traditional
+from bearnav2.srv import SiameseNet
+from bearnav2.msg import ImageList
+
 
 PEAK_MULT = 1.0
 NEWTORK_DIVISION = 8.0
@@ -26,7 +29,8 @@ class Alignment:
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
         rospy.logwarn(self.method)
         if self.method == "SIAM":
-            # TODO: init siamese service here
+            rospy.wait_for_service('siamese_network')
+            self.nn_service = rospy.ServiceProxy('siamese_network', SiameseNet)
 
     def process(self, imgA, imgB):
 
@@ -81,7 +85,14 @@ class Alignment:
             rospy.loginfo('Image pair received ...')
             start = time.time()
             # rospy.loginfo("Passing tensors:", map_tensor.shape, curr_tensor.shape)
-            hist = # TODO: implement calling the service here
+            net_in1 = ImageList([imgA])
+            net_in2 = ImageList([imgB])
+            try:
+                response = self.nn_service(net_in1, net_in2)
+            except rospy.ServiceException as e:
+                rospy.logwarn("Service call failed: %s" % e)
+                return None
+            hist = response.data[0]
             rospy.loginfo("images has been aligned with histogram:")
             rospy.loginfo(str(hist))
             f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist, kind="cubic")
