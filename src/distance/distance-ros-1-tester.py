@@ -36,7 +36,7 @@ def callbackOdom(msg):
     global distance
     distance, use = d.processO(msg)
     if use:
-        print("Using odometry")
+        print("Trying to use odometry")
         pub.publish(distance)
 
 def callbackCamera(msg):
@@ -45,7 +45,7 @@ def callbackCamera(msg):
     msg_to_pass = PFInput(imgs, ImageList([msg]), distances)
     distance, use = d.processS(msg_to_pass)
     if use:
-        print("Using camera")
+        print("Trying to use camera")
         pub.publish(distance)
 
 def handle_set_dist(dst):
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     recorded_map, string_map = get_map(map_path)
     print("Map:", recorded_map)
     pub = rospy.Publisher("distance", Float64, queue_size=1)
-    rospy.Subscriber("/imu_and_wheel_odom", Odometry, callbackOdom, queue_size=1)
+    rospy.Subscriber("/husky_velocity_controller/odom", Odometry, callbackOdom, queue_size=1)
     rospy.Subscriber("/camera_front/image_color", Image, callbackCamera, queue_size=1)
     d = distance_pf.DistancePF(use_twist=False)
     print("Particle filter initialized")

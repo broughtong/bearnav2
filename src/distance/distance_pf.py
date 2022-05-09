@@ -12,16 +12,19 @@ def numpy_softmax(arr):
 class DistancePF:
     def __init__(self, use_twist):
         self.particles_num = 100
-        self.odom_var = 0.05
+        self.odom_var = 0.1
         self.interp_coef = 10
         self.particles_frac = 2
 
-        self.motion_step = True
-        self.sensor_step = True
+        self.motion_step = False
+        self.sensor_step = False
 
         self.last_odom = None
         self.last_time = None
         self.particles = None
+
+        # for debug
+        self.raw_odom = None
 
         rospy.wait_for_service('/siamese_network')
         self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet)
@@ -30,13 +33,16 @@ class DistancePF:
         self.particles = np.ones(self.particles_num) * dst.dist +\
                          np.random.normal(loc=0, scale=var, size=self.particles_num)
         print(str(self.particles.size), "particles initialized at position", str(dst))
+        self.raw_odom = dst.dist
         self.motion_step = True
+        self.sensor_step = True
         self.last_odom = None
         self.last_time = None
         return dst.dist
 
     def get_position(self):
         assert self.particles is not None
+        rospy.logwarn("Outputted position: " + str(np.mean(self.particles)) + " +- " + str(np.std(self.particles)) + " vs raw odom: " + str(self.raw_odom))
         return np.mean(self.particles)
 
     def process_images(self, imgsA, imgsB):
@@ -61,6 +67,7 @@ class DistancePF:
             self.last_odom = msg
             # measured distance
             dist_diff = (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+            self.raw_odom += dist_diff
             # adding new particles with uncertainty
             self.particles = np.concatenate([self.particles + dist_diff +
                                              np.random.normal(loc=0, scale=self.odom_var * dist_diff, size=self.particles.size)
@@ -85,11 +92,12 @@ class DistancePF:
             time_hist = np.max(hists, axis=-1)
             # print("Time histogram", time_hist)
             # interpolate
+            rospy.logwarn("time histogram: " + str(time_hist))
             prob_interp = interpolate.interp1d(dists, time_hist, kind="linear")
             # get probabilites of particles
             particle_prob = numpy_softmax(prob_interp(self.particles))
             # choose best candidates and reduce the number of particles
-            rospy.logwarn(particle_prob)
+            # rospy.logwarn(particle_prob)
             self.particles = np.random.choice(self.particles, int(self.particles_num/self.particles_frac),
                                               p=particle_prob)
             self.sensor_step = False
