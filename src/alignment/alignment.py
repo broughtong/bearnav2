@@ -95,7 +95,7 @@ class Alignment:
             hist = response.data[0]
             rospy.loginfo("images has been aligned with histogram:")
             rospy.loginfo(str(hist))
-            f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist, kind="cubic")
+            f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist.histograms[0].data, kind="cubic")
             interp_hist = f(np.arange(0, RESIZE_W))
             peak = (np.argmax(interp_hist) - interp_hist.size/2.0) * PEAK_MULT
             rospy.logwarn("Peak is: " + str(peak))

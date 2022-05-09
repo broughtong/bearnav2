@@ -4,6 +4,7 @@ from torchvision import transforms
 import os
 import numpy as np
 from cv_bridge import CvBridge
+import rospy
 
 PAD = 32
 RESIZE_H = 320
@@ -29,13 +30,15 @@ class SiameseNetwork:
         """
         tensor1 = self.image_to_tensor(map_images)
         tensor2 = self.image_to_tensor(live_images)
+        rospy.logwarn(tensor1.shape)
+        rospy.logwarn(tensor2.shape)
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             hists = self.model(tensor1, tensor2, padding=PAD)
         return hists
 
     def image_to_tensor(self, imgs):
-        image_list = [self.resize(self.to_tensor(np.array(self.cv_parser.imgmsg_to_cv2(img))).unsqueeze(0))
+        image_list = [self.resize(self.to_tensor(np.array(self.cv_parser.imgmsg_to_cv2(img))))
                       for img in imgs]
         stacked_tensor = t.stack(image_list).to(self.device)
         return stacked_tensor

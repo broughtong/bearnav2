@@ -16,23 +16,24 @@ class DistancePF:
         self.interp_coef = 10
         self.particles_frac = 2
 
-        self.motion_step = False
-        self.sensor_step = False
+        self.motion_step = True
+        self.sensor_step = True
 
         self.last_odom = None
         self.last_time = None
         self.particles = None
 
-        rospy.wait_for_service('siamese_network')
-        self.nn_service = rospy.ServiceProxy('siamese_network', SiameseNet)
+        rospy.wait_for_service('/siamese_network')
+        self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet)
 
-    def set(self, dst, var=3):
-        self.particles = np.ones(self.particles_num) * dst +\
+    def set(self, dst, var=1):
+        self.particles = np.ones(self.particles_num) * dst.dist +\
                          np.random.normal(loc=0, scale=var, size=self.particles_num)
+        print(str(self.particles.size), "particles initialized at position", str(dst))
         self.motion_step = True
         self.last_odom = None
         self.last_time = None
-        return dst
+        return dst.dist
 
     def get_position(self):
         assert self.particles is not None
@@ -50,6 +51,9 @@ class DistancePF:
         return None, False
 
     def processO(self, msg):
+        if self.last_odom is None:
+            self.last_odom = msg
+            return None, False
         if self.motion_step:
             dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
             dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
@@ -58,33 +62,38 @@ class DistancePF:
             # measured distance
             dist_diff = (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
             # adding new particles with uncertainty
-            self.particles = np.stack([self.particles + dist_diff +
-                                       np.random.normal(loc=0, scale=self.odom_var * dist_diff, size=self.particles_num)
-                                       for _ in range(self.particles_frac)])
+            self.particles = np.concatenate([self.particles + dist_diff +
+                                             np.random.normal(loc=0, scale=self.odom_var * dist_diff, size=self.particles.size)
+                                             for _ in range(self.particles_frac)])
             self.motion_step = False
             self.sensor_step = True
+            rospy.logwarn("waiting for sensor model ...")
+
         return self.get_position(), True
 
     def processS(self, msg):
         if self.sensor_step:
-            imgsA = msg.imgsA
-            imgsB = msg.imgsB
+            imgsA = msg.map_images
+            imgsB = msg.live_images
             dists = msg.distances
 
             # clip particles to available image span
             self.particles = np.clip(self.particles, min(dists), max(dists))
             # get time histogram
-            time_hist = self.process_images(imgsA, imgsB)
-            # normalize
-            prob_time_hist = numpy_softmax((time_hist - np.mean(time_hist)))
+            hists = self.process_images(imgsA, imgsB)
+            hists = np.array([hist.data for hist in hists.histograms])
+            time_hist = np.max(hists, axis=-1)
+            # print("Time histogram", time_hist)
             # interpolate
-            prob_interp = interpolate.interp1d(dists, prob_time_hist, kind="cubic")
+            prob_interp = interpolate.interp1d(dists, time_hist, kind="linear")
             # get probabilites of particles
-            particle_prob = prob_interp(self.particles)
+            particle_prob = numpy_softmax(prob_interp(self.particles))
             # choose best candidates and reduce the number of particles
+            rospy.logwarn(particle_prob)
             self.particles = np.random.choice(self.particles, int(self.particles_num/self.particles_frac),
                                               p=particle_prob)
             self.sensor_step = False
             self.motion_step = True
+            rospy.logwarn("waiting for robot model ...")
 
         return self.get_position(), True
