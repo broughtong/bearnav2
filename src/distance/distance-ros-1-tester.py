@@ -12,7 +12,10 @@ import cv2
 from cv_bridge import CvBridge
 
 br = CvBridge()
-IMG_SPAN = 3
+IMG_SPAN = 2
+pub_counter = 0
+last_closest_idx = 0
+last_photos = None
 
 def get_map(path):
     distance_list = []
@@ -22,33 +25,60 @@ def get_map(path):
     distance_list.sort(key=float)
     return np.array(distance_list).astype(float), distance_list   # floats and string sorted
 
-def get_closest_five(curr_dist, map_path):
+def get_closest_photos(curr_dist, map_path):
+    global last_closest_idx, last_photos
     closest_idx = np.argmin(abs(curr_dist - recorded_map))
-    lower_bound = max(0, closest_idx - IMG_SPAN)
-    upper_bound = min(closest_idx + IMG_SPAN + 1, len(recorded_map) - 1)  # IS -1 here???
-    imgs = []
-    for my_idx in np.arange(lower_bound, upper_bound):
-        # print("Loading img:", string_map[my_idx] + ".jpg", "with idx", my_idx)
-        img = cv2.imread(os.path.join(map_path, string_map[my_idx] + ".jpg"))
-        imgs.append(br.cv2_to_imgmsg(img))
-    ret = ImageList(imgs)
-    return ret, recorded_map[lower_bound:upper_bound]
+    last_diff = closest_idx - last_closest_idx
+    if abs(last_diff) > 1 or last_photos is None:   # the images are significantly shifted filling buffer
+        lower_bound = max(0, closest_idx - IMG_SPAN)
+        upper_bound = min(closest_idx + IMG_SPAN + 1, len(recorded_map))
+        imgs = []
+        for my_idx in np.arange(lower_bound, upper_bound):
+            # print("Loading img:", string_map[my_idx] + ".jpg", "with idx", my_idx)
+            img = cv2.imread(os.path.join(map_path, string_map[my_idx] + ".jpg"))
+            imgs.append(br.cv2_to_imgmsg(img))
+        last_photos = imgs
+        ret = ImageList(imgs)
+        last_closest_idx = closest_idx
+        return ret, recorded_map[lower_bound:upper_bound]
+    else:   # use already buffered images
+        lower_bound = max(0, closest_idx - IMG_SPAN)
+        upper_bound = min(closest_idx + IMG_SPAN, len(recorded_map))
+        if last_diff == 0:
+            return ImageList(last_photos), recorded_map[lower_bound:upper_bound + 1]
+        if last_diff == 1 and upper_bound < len(recorded_map):
+            img = cv2.imread(os.path.join(map_path, string_map[upper_bound] + ".jpg"))
+            last_photos.append(br.cv2_to_imgmsg(img))
+            if len(last_photos) > 2*IMG_SPAN + 1:
+                last_photos.pop(0)
+        if last_diff == -1 and lower_bound >= 0:
+            img = cv2.imread(os.path.join(map_path, string_map[lower_bound] + ".jpg"))
+            last_photos.insert(0, br.cv2_to_imgmsg(img))
+            if len(last_photos) > 2*IMG_SPAN + 1:
+                last_photos.pop()
+        last_closest_idx = closest_idx
+        return ImageList(last_photos), recorded_map[lower_bound:upper_bound + 1]
+
 
 def callbackOdom(msg):
     global distance
     distance, use = d.processO(msg)
     if use:
-        print("Trying to use odometry")
+        # print("Trying to use odometry")
         pub.publish(distance)
 
 def callbackCamera(msg):
-    global distance
-    imgs, distances = get_closest_five(distance, map_path)
-    msg_to_pass = PFInput(imgs, ImageList([msg]), distances)
-    distance, use = d.processS(msg_to_pass)
-    if use:
-        print("Trying to use camera")
-        pub.publish(distance)
+    global distance, pub_counter
+    pub_counter += 1
+    if not pub_counter % 15:
+        imgs, distances = get_closest_photos(distance, map_path)
+        msg_to_pass = PFInput(imgs, ImageList([msg]), distances)
+        distance, use = d.processS(msg_to_pass)
+        if use:
+            # print("Trying to use camera")
+            pub.publish(distance)
+    # else:
+    #     print("Throwing away obtained img.")
 
 def handle_set_dist(dst):
     driven = d.set(dst)

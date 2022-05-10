@@ -27,7 +27,7 @@ class DistancePF:
         self.raw_odom = None
 
         rospy.wait_for_service('/siamese_network')
-        self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet)
+        self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet, persistent=True)
 
     def set(self, dst, var=0.5):
         self.particles = np.ones(self.particles_num) * dst.dist +\
@@ -42,7 +42,6 @@ class DistancePF:
 
     def get_position(self):
         assert self.particles is not None
-        rospy.logwarn("Outputted position: " + str(np.mean(self.particles)) + " +- " + str(np.std(self.particles)) + " vs raw odom: " + str(self.raw_odom))
         return np.mean(self.particles)
 
     def process_images(self, imgsA, imgsB):
@@ -76,6 +75,7 @@ class DistancePF:
             self.motion_step = False
             self.sensor_step = True
             rospy.logwarn("waiting for sensor model ...")
+            rospy.logwarn("Outputted position: " + str(np.mean(self.particles)) + " +- " + str(np.std(self.particles)) + " vs raw odom: " + str(self.raw_odom))
 
         return self.get_position(), True
 
@@ -85,6 +85,7 @@ class DistancePF:
             imgsB = msg.live_images
             dists = msg.distances
 
+            rospy.logwarn("curr img times:" + str(imgsA.data[0].header.stamp.secs) + ", " + str(imgsB.data[0].header.stamp.secs))
             # clip particles to available image span
             self.particles = np.clip(self.particles, min(dists), max(dists))
             # get time histogram
@@ -96,9 +97,11 @@ class DistancePF:
             # interpolate
             rospy.logwarn("time histogram: " + str(time_hist))
             rospy.logwarn("with distances: " + str(dists))
-            prob_interp = interpolate.interp1d(dists, time_hist, kind="linear")
+            prob_interp = interpolate.interp1d(dists, time_hist, kind="quadratic")
             # get probabilites of particles
             particle_prob = numpy_softmax(prob_interp(self.particles))
+            # rospy.logwarn(particle_prob)
+            # rospy.logwarn(self.particles)
             # choose best candidates and reduce the number of particles
             # rospy.logwarn(particle_prob)
             self.particles = np.random.choice(self.particles, int(self.particles_num/self.particles_frac),
