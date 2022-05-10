@@ -12,6 +12,7 @@ import cv2
 from cv_bridge import CvBridge
 
 br = CvBridge()
+IMG_SPAN = 3
 
 def get_map(path):
     distance_list = []
@@ -23,10 +24,11 @@ def get_map(path):
 
 def get_closest_five(curr_dist, map_path):
     closest_idx = np.argmin(abs(curr_dist - recorded_map))
-    lower_bound = max(0, closest_idx - 2)
-    upper_bound = min(closest_idx + 3, len(recorded_map) - 1)  # IS -1 here???
+    lower_bound = max(0, closest_idx - IMG_SPAN)
+    upper_bound = min(closest_idx + IMG_SPAN + 1, len(recorded_map) - 1)  # IS -1 here???
     imgs = []
     for my_idx in np.arange(lower_bound, upper_bound):
+        # print("Loading img:", string_map[my_idx] + ".jpg", "with idx", my_idx)
         img = cv2.imread(os.path.join(map_path, string_map[my_idx] + ".jpg"))
         imgs.append(br.cv2_to_imgmsg(img))
     ret = ImageList(imgs)

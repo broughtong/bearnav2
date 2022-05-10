@@ -132,7 +132,7 @@ class Siamese(t.nn.Module):
 
     def forward(self, source, target, padding=None, displac=None):
         batch_size = source.shape[0]
-        stacked_in = t.stack([source, target], dim=0)
+        stacked_in = t.cat([source, target], dim=0)
         stacked_out = self.backbone(stacked_in)
         source = stacked_out[:batch_size]
         target = stacked_out[batch_size:]

@@ -6,7 +6,7 @@ from bearnav2.srv import SiameseNet
 
 
 def numpy_softmax(arr):
-    return np.exp(arr) / np.sum(np.exp(arr))
+    return np.exp(arr) / np.sum(np.exp(arr), axis=-1, keepdims=True)
 
 
 class DistancePF:
@@ -29,7 +29,7 @@ class DistancePF:
         rospy.wait_for_service('/siamese_network')
         self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet)
 
-    def set(self, dst, var=1):
+    def set(self, dst, var=0.5):
         self.particles = np.ones(self.particles_num) * dst.dist +\
                          np.random.normal(loc=0, scale=var, size=self.particles_num)
         print(str(self.particles.size), "particles initialized at position", str(dst))
@@ -46,6 +46,7 @@ class DistancePF:
         return np.mean(self.particles)
 
     def process_images(self, imgsA, imgsB):
+        # TODO: check whether the service is available???
         try:
             resp1 = self.nn_service(imgsA, imgsB)
             return resp1
@@ -89,6 +90,7 @@ class DistancePF:
             # get time histogram
             hists = self.process_images(imgsA, imgsB)
             hists = np.array([hist.data for hist in hists.histograms])
+            # hists = numpy_softmax(hists)
             time_hist = np.max(hists, axis=-1)
             # print("Time histogram", time_hist)
             # interpolate
