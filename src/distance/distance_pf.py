@@ -93,6 +93,7 @@ class DistancePF:
             # print("Time histogram", time_hist)
             # interpolate
             rospy.logwarn("time histogram: " + str(time_hist))
+            rospy.logwarn("with distances: " + str(dists))
             prob_interp = interpolate.interp1d(dists, time_hist, kind="linear")
             # get probabilites of particles
             particle_prob = numpy_softmax(prob_interp(self.particles))
