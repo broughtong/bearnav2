@@ -131,8 +131,11 @@ class Siamese(t.nn.Module):
         self.out_batchnorm = t.nn.BatchNorm2d(1)
 
     def forward(self, source, target, padding=None, displac=None):
-        source = self.backbone(source)
-        target = self.backbone(target)
+        batch_size = source.shape[0]
+        stacked_in = t.stack([source, target], dim=0)
+        stacked_out = self.backbone(stacked_in)
+        source = stacked_out[:batch_size]
+        target = stacked_out[batch_size:]
         if displac is None:
             # regular walk through
             score_map = self.match_corr(target, source, padding=padding)
