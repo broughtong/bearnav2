@@ -23,6 +23,9 @@ class DistancePF:
         self.last_time = None
         self.particles = None
 
+        self.odom_only = False
+        self.visual_only = False
+
         # for debug
         self.raw_odom = None
 
@@ -57,9 +60,18 @@ class DistancePF:
         return None, False
 
     def processO(self, msg):
-        if self.last_odom is None:
+        if self.last_odom is None or self.visual_only:
             self.last_odom = msg
             return None, False
+        if self.odom_only:
+            dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
+            dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
+            dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
+            self.last_odom = msg
+            # measured distance
+            dist_diff = (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+            self.raw_odom += dist_diff
+            return self.raw_odom, True
         if self.motion_step:
             dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
             dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
@@ -80,6 +92,21 @@ class DistancePF:
         return self.get_position(), True
 
     def processS(self, msg):
+        if self.odom_only:
+            return None, False
+
+        if self.visual_only:
+            imgsA = msg.map_images
+            imgsB = msg.live_images
+            dists = msg.distances
+            hists = self.process_images(imgsA, imgsB)
+            hists = np.array([hist.data for hist in hists.histograms])
+            time_hist = np.max(hists, axis=-1)
+            prob_interp = interpolate.interp1d(dists, time_hist, kind="quadratic")
+            interp_list = np.linspace(dists[0], dists[-1], dists*8)  # 8 is magic number
+            interp_out = prob_interp(interp_list)
+            return interp_list[np.argmax(interp_out)], True
+
         if self.sensor_step:
             imgsA = msg.map_images
             imgsB = msg.live_images
