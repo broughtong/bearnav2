@@ -12,6 +12,18 @@ from bearnav2.msg import MapMakerAction, MapMakerResult
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 
+
+TARGET_WIDTH = 512
+
+
+def save_img(img, filename):
+    (h, w) = img.shape[:2]
+    r = TARGET_WIDTH / float(w)
+    dim = (TARGET_WIDTH, int(h * r))
+    img = cv2.resize(img, dim)
+    cv2.imwrite(filename, img)
+
+
 class ActionServer():
 
     def __init__(self):
@@ -66,7 +78,8 @@ class ActionServer():
             rospy.logdebug("Hit waypoint")
             self.nextStep += self.mapStep
             filename = os.path.join(self.mapName, str(dist) + ".jpg")
-            cv2.imwrite(filename, self.img)
+            # cv2.imwrite(filename, self.img)
+            save_img(self.img, filename)
             rospy.logwarn("Image saved %s" % (filename))
 
         self.checkShutdown()
@@ -116,7 +129,8 @@ class ActionServer():
         else:
             rospy.logdebug("Creating final wp")
             filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
-            cv2.imwrite(filename, self.img)
+            # cv2.imwrite(filename, self.img)
+            save_img(self.img, filename)
             rospy.loginfo("Stopping Mapping")
             time.sleep(2)
             self.isMapping = False
