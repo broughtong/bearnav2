@@ -14,6 +14,17 @@ from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 import numpy as np
+import threading
+
+
+def load_map(mappath, images, distances):
+    for file in sorted(os.listdir(mappath)):
+        if file.endswith(".jpg"):
+            distances.append((file[:-4]))
+            images.append(cv2.imread(os.path.join(mappath, file)))
+            rospy.logwarn("Loaded map image:", file)
+    rospy.logwarn("Whole map sucessfully loaded")
+
 
 class ActionServer():
 
@@ -27,7 +38,8 @@ class ActionServer():
         self.nextStep = 0
         self.bag = None
         self.isRepeating = False
-        self.fileList = []
+        self.map_images = []
+        self.map_distances = []
         self.endPosition = None
 
         rospy.logdebug("Waiting for services to become available...")
@@ -69,21 +81,10 @@ class ActionServer():
         if len(self.fileList) < 1:
             rospy.logwarn("Not many map files")
 
-        closestFilename = None
-        closestDistance = 999999
-        dist = float(dist)
-        for filename in self.fileList:
-            ffilename = float(filename)
-            diff = abs(ffilename - dist)
-            if diff < closestDistance:
-                closestDistance = diff
-                closestFilename = filename
+        nearest_map_idx = np.argmin(abs(dist - np.array(self.map_distances)))
 
         if self.isRepeating:
-            fn = os.path.join(self.mapName, closestFilename + ".jpg")
-            rospy.logwarn("Opening : " + fn)
-            img = cv2.imread(fn)
-            msg = self.br.cv2_to_imgmsg(img)
+            msg = self.br.cv2_to_imgmsg(self.map_images[nearest_map_idx])
             self.al_2_pub.publish(msg)
 
     def distanceCB(self, msg):
@@ -140,17 +141,9 @@ class ActionServer():
             return
 
         self.parseParams(os.path.join(goal.mapName, "params"))
-        
-        #get file list
-        allFiles = []
-        for files in os.walk(goal.mapName):
-            allFiles = files[2]
-            break
-        for filename in allFiles:
-            if ".jpg" in filename:
-                filename = ".".join(filename.split(".")[:-1])
-                self.fileList.append(filename)
-        rospy.logwarn("Found %i map files" % (len(self.fileList)))
+
+        map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances))
+        map_loader.start()
 
         #set distance to zero
         rospy.logdebug("Resetting distnace")
@@ -217,15 +210,6 @@ class ActionServer():
         if self.bag is not None:
             self.bag.close()
 
-class ImageFetcherThread(threading.Thread):
-    def __init__(self, location, idQueue, imgLock):
-        threading.Thread.__init__(self)
-        self.location = location
-        self.idQueue = idQueue
-        self.imgLock = imgLock
-    def run(self):
-        threadLock.acquire()
-        threadLock.release()
 
 if __name__ == '__main__':
 
