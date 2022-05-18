@@ -10,18 +10,21 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment
+from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment, PFInput, ImageList
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
 import numpy as np
 import threading
 
 
+BR = CvBridge()
+
+
 def load_map(mappath, images, distances):
     for file in sorted(os.listdir(mappath)):
         if file.endswith(".jpg"):
             distances.append((file[:-4]))
-            images.append(cv2.imread(os.path.join(mappath, file)))
+            images.append(BR.cv2_to_imgmsgcv2.imread(os.path.join(mappath, file)))
             rospy.logwarn("Loaded map image:", file)
     rospy.logwarn("Whole map sucessfully loaded")
 
@@ -31,7 +34,10 @@ class ActionServer():
     def __init__(self):
 
         #some vars
-        self.br = CvBridge()
+        self.pf_delay = 3
+        self.pf_counter = 0
+        self.pf_span = 2
+
         self.img = None
         self.mapName = ""
         self.mapStep = None
@@ -41,6 +47,8 @@ class ActionServer():
         self.map_images = []
         self.map_distances = []
         self.endPosition = None
+
+        self.curr_dist = 0
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -58,7 +66,8 @@ class ActionServer():
         self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
         self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=1)
         self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=1)
-        self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
+        self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=1)
+        self.pf_pub = rospy.Publisher("pf_img_input", PFInput, queue_size=1)
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
@@ -70,33 +79,43 @@ class ActionServer():
         rospy.loginfo("Server started, awaiting goal")
 
     def imageCB(self, msg):
-
         if self.isRepeating:
+            self.pf_counter += 1
             self.al_1_pub.publish(msg)
             self.img = True
             self.checkShutdown()
+            if not self.pf_counter % self.pf_delay:
+                self.pubClosestImgList(self.curr_dist)
 
-    def getClosestImg(self, dist):
-
-        if len(self.fileList) < 1:
+    def pubClosestImg(self):
+        if len(self.map_images) < 1:
             rospy.logwarn("Not many map files")
 
-        nearest_map_idx = np.argmin(abs(dist - np.array(self.map_distances)))
+        nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
 
         if self.isRepeating:
-            msg = self.br.cv2_to_imgmsg(self.map_images[nearest_map_idx])
+            msg = self.map_images[nearest_map_idx]
             self.al_2_pub.publish(msg)
+
+    def pubClosestImgList(self, img_msg):
+        nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
+        lower_bound = max(0, nearest_map_idx - self.pf_span)
+        upper_bound = min(nearest_map_idx + self.pf_span + 1, len(self.map_distances))
+        map_imgs = ImageList(self.map_images[lower_bound:upper_bound])
+        distances = self.map_distances[lower_bound:upper_bound]
+        live_imgs = ImageList([img_msg])
+        pf_pub_msg = PFInput(map_imgs, live_imgs, distances)
+        self.pf_pub.publish(pf_pub_msg)
 
     def distanceCB(self, msg):
         dist = msg.data
         if self.isRepeating == False:
             return
-        if dist >= self.nextStep:
-            if self.img is None:
-                rospy.logwarn("Warning: no image received")
-            rospy.logdebug("Triggered wp")
-            self.getClosestImg(dist)
-            self.nextStep += self.mapStep
+        if self.img is None:
+            rospy.logwarn("Warning: no image received")
+        rospy.logdebug("Triggered wp")
+        self.curr_dist = dist
+        self.pubClosestImg()
 
         if self.endPosition != 0 and dist >= self.endPosition:
             self.isRepeating = False
@@ -148,6 +167,7 @@ class ActionServer():
         #set distance to zero
         rospy.logdebug("Resetting distnace")
         self.distance_reset_srv(goal.startPos)
+        self.curr_dist = goal.startPos
         self.endPosition = goal.endPos
         self.nextStep = 0
 
