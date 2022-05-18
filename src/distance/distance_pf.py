@@ -48,7 +48,6 @@ class DistancePF:
         return np.mean(self.particles)
 
     def process_images(self, imgsA, imgsB):
-        # TODO: check whether the service is available???
         try:
             resp1 = self.nn_service(imgsA, imgsB)
             return resp1

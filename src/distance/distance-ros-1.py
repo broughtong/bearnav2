@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import distance
+import distance_pf
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
@@ -36,7 +37,8 @@ if __name__ == "__main__":
     use_twist = rospy.get_param("use_twist",'False')
     cmd_vel_topic = rospy.get_param("~cmd_vel_topic")
     odom_topic = rospy.get_param("~odom_topic")
-    d = distance.Distance(use_twist)
+    # d = distance.Distance(use_twist)
+    d = distance_pf.DistancePF(False)
     pub = rospy.Publisher("distance", Float64, queue_size=1)
     rospy.Subscriber(odom_topic, Odometry, callbackOdom, queue_size=1)
     rospy.Subscriber(cmd_vel_topic, Twist, callbackTwist, queue_size=1)
