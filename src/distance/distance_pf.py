@@ -29,13 +29,13 @@ class DistancePF:
         # for debug
         self.raw_odom = None
 
-        rospy.wait_for_service('/siamese_network')
+        rospy.wait_for_service('siamese_network')
         self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet, persistent=True)
 
     def set(self, dst, var=0.5):
         self.particles = np.ones(self.particles_num) * dst.dist +\
                          np.random.normal(loc=0, scale=var, size=self.particles_num)
-        print(str(self.particles.size), "particles initialized at position", str(dst))
+        #print(str(self.particles.size), "particles initialized at position", str(dst))
         self.raw_odom = dst.dist
         self.motion_step = True
         self.sensor_step = True
@@ -121,8 +121,8 @@ class DistancePF:
             time_hist = np.max(hists, axis=-1)
             # print("Time histogram", time_hist)
             # interpolate
-            rospy.logwarn("time histogram: " + str(time_hist))
-            rospy.logwarn("with distances: " + str(dists))
+            #rospy.logwarn("time histogram: " + str(time_hist))
+            #rospy.logwarn("with distances: " + str(dists))
             prob_interp = interpolate.interp1d(dists, time_hist, kind="quadratic")
             # get probabilites of particles
             particle_prob = numpy_softmax(prob_interp(self.particles))
