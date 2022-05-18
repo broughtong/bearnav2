@@ -37,5 +37,8 @@
         <!-- image preprocessing -->
         <node pkg="bearnav2" type="preprocess-ros-1.py" name="preprocess" respawn="true" args="-OO" />
 
+        <node pkg="bearnav2" type="siamese-ros-1.py" name="siamese" respawn="true" args="-OO" />
+
+
     </group>
 </launch>
