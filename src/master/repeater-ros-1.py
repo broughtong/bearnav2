@@ -90,7 +90,7 @@ class ActionServer():
             self.img = True
             self.checkShutdown()
             if not self.pf_counter % self.pf_delay:
-                self.pubClosestImgList(self.curr_dist)
+                self.pubClosestImgList(msg)
 
     def pubClosestImg(self):
         if len(self.map_images) < 1:
@@ -110,13 +110,14 @@ class ActionServer():
             lower_bound = max(0, nearest_map_idx - self.pf_span)
             upper_bound = min(nearest_map_idx + self.pf_span + 1, len(self.map_distances))
             map_imgs = ImageList(self.map_images[lower_bound:upper_bound])
-            distances = list(self.map_distances[lower_bound:upper_bound])
+            distances = self.map_distances[lower_bound:upper_bound]
             live_imgs = ImageList([img_msg])
-            # rospy.logwarn(live_imgs)
-            # rospy.logwarn(map_imgs)
-            rospy.logwarn(distances)
-            pf_pub_msg = PFInput(map_imgs, live_imgs, distances)
-            self.pf_pub.publish(pf_pub_msg)
+            # rospy.logwarn(distances)
+            pf_msg = PFInput()
+            pf_msg.map_images = map_imgs
+            pf_msg.live_images = live_imgs
+            pf_msg.distances = distances
+            self.pf_pub.publish(pf_msg)
 
     def distanceCB(self, msg):
         dist = msg.data
