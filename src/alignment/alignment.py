@@ -8,6 +8,7 @@ from torchvision import transforms
 from scipy import interpolate
 import time
 from backends import traditional
+from std_msgs.msg import Header, Float32
 from bearnav2.srv import SiameseNet
 from bearnav2.msg import ImageList
 
@@ -27,7 +28,7 @@ class Alignment:
 
         self.method = "SIAM"
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
-        rospy.logwarn(self.method)
+        rospy.logwarn("Alignment method:" + self.method)
         if self.method == "SIAM":
             rospy.wait_for_service('siamese_network')
             self.nn_service = rospy.ServiceProxy('siamese_network', SiameseNet)

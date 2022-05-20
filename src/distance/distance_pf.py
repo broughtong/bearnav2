@@ -59,7 +59,7 @@ class DistancePF:
         return None, False
 
     def processO(self, msg):
-        if self.last_odom is None or self.visual_only:
+        if self.last_odom is None or self.visual_only or self.particles is None:
             self.last_odom = msg
             return None, False
         if self.odom_only:

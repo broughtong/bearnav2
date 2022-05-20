@@ -17,8 +17,7 @@ imgABuf = None
 
 def callbackA(msg):
     global imgABuf
-    print("got_map")
-    imgABuf = br.imgmsg_to_cv2(msg)
+    rospy.logwarn("New map image to align")
 
 def callbackB(msg):
 
@@ -26,7 +25,6 @@ def callbackB(msg):
         rospy.logwarn("Aligner still awaiting map image!")
         return
 
-    imgB = br.imgmsg_to_cv2(msg)
     alignment, uncertainty, hist = aligner.process(imgABuf, imgB)
     m = Alignment()
     m.alignment = alignment

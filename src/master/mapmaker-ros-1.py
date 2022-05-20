@@ -7,7 +7,7 @@ import cv2
 import rosbag
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float64
+from std_msgs.msg import Float32
 from bearnav2.msg import MapMakerAction, MapMakerResult 
 from bearnav2.srv import SetDist
 from cv_bridge import CvBridge
@@ -45,7 +45,7 @@ class ActionServer():
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB)
+        self.distance_sub = rospy.Subscriber("distance", Float32, self.distanceCB)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
