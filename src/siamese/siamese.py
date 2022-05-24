@@ -30,8 +30,7 @@ class SiameseNetwork:
         """
         tensor1 = self.image_to_tensor(map_images)
         tensor2 = self.image_to_tensor(live_images)
-        rospy.logwarn(tensor1.shape)
-        rospy.logwarn(tensor2.shape)
+        rospy.logwarn("aligning " + str(tensor1.shape[0]) + " to " + str(tensor2.shape[0]) + " images")
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             hists = self.model(tensor1, tensor2, padding=PAD)

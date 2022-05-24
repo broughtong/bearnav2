@@ -1,4 +1,4 @@
 ImageList map_images
 ImageList live_images
 ---
-Histogram[] histograms
+FloatList[] histograms

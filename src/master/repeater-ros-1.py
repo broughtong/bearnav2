@@ -105,7 +105,7 @@ class ActionServer():
 
     def pubClosestImgList(self, img_msg):
         if len(self.map_images) > 0:
-            rospy.logwarn(self.map_distances)
+            # rospy.logwarn(self.map_distances)
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
             lower_bound = max(0, nearest_map_idx - self.pf_span)
             upper_bound = min(nearest_map_idx + self.pf_span + 1, len(self.map_distances))
@@ -126,6 +126,7 @@ class ActionServer():
         if self.img is None:
             rospy.logwarn("Warning: no image received")
         rospy.logdebug("Triggered wp")
+        # if dist > self.curr_dist: maybe this condition is not bad!
         self.curr_dist = dist
         self.pubClosestImg()
 

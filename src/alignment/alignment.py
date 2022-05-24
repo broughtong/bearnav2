@@ -8,7 +8,6 @@ from torchvision import transforms
 from scipy import interpolate
 import time
 from backends import traditional
-from std_msgs.msg import Header, Float32
 from bearnav2.srv import SiameseNet
 from bearnav2.msg import ImageList
 
@@ -93,16 +92,16 @@ class Alignment:
             except rospy.ServiceException as e:
                 rospy.logwarn("Service call failed: %s" % e)
                 return None
-            hist = response.data[0]
-            rospy.loginfo("images has been aligned with histogram:")
-            rospy.loginfo(str(hist))
-            f = interpolate.interp1d(np.linspace(0, RESIZE_W, hist.size), hist.histograms[0].data, kind="cubic")
+            hist = response.histograms[0].data
+            # rospy.loginfo("images has been aligned with histogram:")
+            # rospy.loginfo(str(hist))
+            f = interpolate.interp1d(np.linspace(0, RESIZE_W, len(hist)), hist, kind="cubic")
             interp_hist = f(np.arange(0, RESIZE_W))
             peak = (np.argmax(interp_hist) - interp_hist.size/2.0) * PEAK_MULT
-            rospy.logwarn("Peak is: " + str(peak))
+            # rospy.logwarn("Peak is: " + str(peak))
             end = time.time()
             rospy.logwarn("The alignment took: " + str(end - start))
             # rospy.loginfo("Outputed histogram", hist.shape)
-            return peak, 0, [] 
+            return peak, 0, interp_hist
         rospy.logwarn("No image matching scheme selected! Not correcting heading!")
         return peak, 0, hist

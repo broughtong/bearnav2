@@ -5,7 +5,7 @@ import cv2
 import alignment
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from bearnav2.msg import Alignment, IntList
+from bearnav2.msg import Alignment, FloatList
 from dynamic_reconfigure.server import Server
 from bearnav2.cfg import AlignmentConfig
 
@@ -17,6 +17,7 @@ imgABuf = None
 
 def callbackA(msg):
     global imgABuf
+    imgABuf = msg
     rospy.logwarn("New map image to align")
 
 def callbackB(msg):
@@ -25,15 +26,14 @@ def callbackB(msg):
         rospy.logwarn("Aligner still awaiting map image!")
         return
 
-    alignment, uncertainty, hist = aligner.process(imgABuf, imgB)
+    alignment, uncertainty, hist = aligner.process(imgABuf, msg)
     m = Alignment()
     m.alignment = alignment
     m.uncertainty = uncertainty
     pub.publish(m)
-
-    hm = IntList()
-    hm.data = hist
-    pub_hist.publish(hm)
+    rospy.logwarn("")
+    hist_pub = FloatList(hist)
+    pub_hist.publish(hist_pub)
 
 def config_cb(config, level):
     global aligner
@@ -50,8 +50,8 @@ if __name__ == "__main__":
     aligner = alignment.Alignment()
     srv = Server(AlignmentConfig, config_cb)
 
-    pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
-    pub_hist = rospy.Publisher("histogram", IntList, queue_size=0)
+    pub = rospy.Publisher("alignment/output", Alignment, queue_size=1)
+    pub_hist = rospy.Publisher("histogram", FloatList, queue_size=1)
 
     rospy.Subscriber("alignment/inputA", Image, callbackB, queue_size=1)
     rospy.Subscriber("alignment/inputB", Image, callbackA, queue_size=1)

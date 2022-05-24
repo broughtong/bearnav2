@@ -3,6 +3,7 @@ import rospy
 import numpy as np
 from scipy import interpolate
 from bearnav2.srv import SiameseNet
+from bearnav2.msg import FloatList
 
 
 def numpy_softmax(arr):
@@ -24,13 +25,14 @@ class DistancePF:
         self.particles = None
 
         self.odom_only = False
-        self.visual_only = False
+        self.visual_only = True
 
         # for debug
         self.raw_odom = None
 
         rospy.wait_for_service('siamese_network')
-        self.nn_service = rospy.ServiceProxy('/siamese_network', SiameseNet, persistent=True)
+        self.nn_service = rospy.ServiceProxy('siamese_network', SiameseNet, persistent=True)
+        self.particles_pub = rospy.Publisher("particles", FloatList, queue_size=1)
 
     def set(self, dst, var=0.5):
         self.particles = np.ones(self.particles_num) * dst.dist +\
@@ -85,31 +87,33 @@ class DistancePF:
                                              for _ in range(self.particles_frac)])
             self.motion_step = False
             self.sensor_step = True
+            self.particles_pub.publish(self.particles)
             rospy.logwarn("waiting for sensor model ...")
             rospy.logwarn("Outputted position: " + str(np.mean(self.particles)) + " +- " + str(np.std(self.particles)) + " vs raw odom: " + str(self.raw_odom))
-
         return self.get_position(), True
 
     def processS(self, msg):
+        rospy.logwarn("PF obtained images")
         if self.odom_only:
             return None, False
 
+        imgsA = msg.map_images
+        imgsB = msg.live_images
+        dists = msg.distances
+
         if self.visual_only:
-            imgsA = msg.map_images
-            imgsB = msg.live_images
-            dists = msg.distances
+
             hists = self.process_images(imgsA, imgsB)
             hists = np.array([hist.data for hist in hists.histograms])
             time_hist = np.max(hists, axis=-1)
             prob_interp = interpolate.interp1d(dists, time_hist, kind="quadratic")
-            interp_list = np.linspace(dists[0], dists[-1], dists*8)  # 8 is magic number
+            interp_list = np.linspace(dists[0], dists[-1], len(dists)*8)  # 8 is magic number
             interp_out = prob_interp(interp_list)
-            return interp_list[np.argmax(interp_out)], True
+            output = interp_list[np.argmax(interp_out)]
+            rospy.logwarn("Estimated distance: " + str(output))
+            return output, True
 
         if self.sensor_step:
-            imgsA = msg.map_images
-            imgsB = msg.live_images
-            dists = msg.distances
 
             rospy.logwarn("curr img times:" + str(imgsA.data[0].header.stamp.secs) + ", " + str(imgsB.data[0].header.stamp.secs))
             # clip particles to available image span

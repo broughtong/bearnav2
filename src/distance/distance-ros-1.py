@@ -21,7 +21,7 @@ def callbackOdom(msg):
         pub.publish(driven)
 
 def callbackCamera(msg):
-    driven, use = d.processO(msg)
+    driven, use = d.processS(msg)
     if use:
         pub.publish(driven)
 

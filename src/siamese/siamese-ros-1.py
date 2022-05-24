@@ -5,7 +5,7 @@ import cv2
 import siamese
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from bearnav2.msg import Alignment, IntList, Histogram
+from bearnav2.msg import Alignment, IntList, FloatList
 from bearnav2.srv import SiameseNet, SiameseNetResponse
 
 pub = None
@@ -19,7 +19,7 @@ def process_imgs(req):
     imgs1 = req.map_images.data
     imgs2 = req.live_images.data
     net_out = siam.forward(imgs1, imgs2)
-    hists = [Histogram(hist) for hist in net_out]
+    hists = [FloatList(hist) for hist in net_out]
     return SiameseNetResponse(hists)
 
 
