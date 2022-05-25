@@ -17,12 +17,13 @@ imgABuf = None
 
 def callbackA(msg):
     global imgABuf
+    print("got_map")
     imgABuf = br.imgmsg_to_cv2(msg)
 
 def callbackB(msg):
 
     if imgABuf is None:
-        rospy.logwarn("Aligner still awaiting cam A!")
+        rospy.logwarn("Aligner still awaiting map image!")
         return
 
     imgB = br.imgmsg_to_cv2(msg)
@@ -38,8 +39,11 @@ def callbackB(msg):
 
 def config_cb(config, level):
     global aligner
-     aligner.method = config.feature_type
-    #aligner.method = "SIAM"
+    #print(config.feature_type)
+    #rospy.logwarn(config.feature_type)
+    aligner.method = config.feature_type
+    aligner.method = "SIAM"
+    print(aligner.method)
     return config
 
 if __name__ == "__main__":

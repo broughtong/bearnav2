@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import time
 import rospy
 import os
 import actionlib
@@ -42,9 +43,9 @@ class ActionServer():
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
 
         rospy.logdebug("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB, queue_size=1)
-        self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=0)
-        self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=0)
+        self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
+        self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=1)
+        self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=1)
         self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
 
         rospy.logdebug("Setting up published for commands")
@@ -59,8 +60,8 @@ class ActionServer():
     def imageCB(self, msg):
 
         if self.isRepeating:
-            self.img = self.br.imgmsg_to_cv2(msg)
             self.al_1_pub.publish(msg)
+            self.img = True
             self.checkShutdown()
 
     def getClosestImg(self, dist):
@@ -80,7 +81,7 @@ class ActionServer():
 
         if self.isRepeating:
             fn = os.path.join(self.mapName, closestFilename + ".jpg")
-            rospy.logdebug("Opening : " + fn)
+            rospy.logwarn("Opening : " + fn)
             img = cv2.imread(fn)
             msg = self.br.cv2_to_imgmsg(img)
             self.al_2_pub.publish(msg)
@@ -149,7 +150,7 @@ class ActionServer():
             if ".jpg" in filename:
                 filename = ".".join(filename.split(".")[:-1])
                 self.fileList.append(filename)
-        rospy.logdebug("Found %i map files" % (len(self.fileList)))
+        rospy.logwarn("Found %i map files" % (len(self.fileList)))
 
         #set distance to zero
         rospy.logdebug("Resetting distnace")
@@ -157,7 +158,7 @@ class ActionServer():
         self.endPosition = goal.endPos
         self.nextStep = 0
 
-        rospy.logdebug("Starting repeat")
+        rospy.logwarn("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
 
@@ -165,6 +166,9 @@ class ActionServer():
         start = rospy.Time.now()
         sim_start = None
         self.isRepeating = True
+        rospy.logwarn("Warm up")
+        time.sleep(5)
+        rospy.logwarn("Starting")
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:
