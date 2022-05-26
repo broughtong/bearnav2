@@ -189,9 +189,10 @@ class ActionServer():
         self.mapName = goal.mapName
 
         #replay bag
-        sim_start = None
         start = None
+        sim_start = None
         self.isRepeating = True
+        rospy.logwarn("Starting")
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:

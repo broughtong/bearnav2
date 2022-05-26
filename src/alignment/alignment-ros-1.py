@@ -31,7 +31,7 @@ def callbackB(msg):
     m.alignment = alignment
     m.uncertainty = uncertainty
     pub.publish(m)
-    rospy.logwarn("")
+
     hist_pub = FloatList(hist)
     pub_hist.publish(hist_pub)
 
