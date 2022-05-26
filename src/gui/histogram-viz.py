@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import matplotlib
 matplotlib.use('Agg')
 import rospy
@@ -8,32 +9,36 @@ from cv_bridge import CvBridge
 from bearnav2.msg import IntList
 import matplotlib.pyplot as plt
 import numpy as np
+from topic_tools import LazyTransport
 
-pub = None
-br = CvBridge()
+class Histogrammer(LazyTransport):
+    def __init__(self):
+        super(self.__class__, self).__init__()
+        self.pub = rospy.Publisher("histogram_viz", Image, queue_size=0) 
+        self.br = CvBridge()
 
-def callback(msg):
+    def subscribe(self):
+        self._sub = rospy.Subscriber("histogram", IntList, self._process)
 
-    if pub.get_num_connections() == 0:
-        return
-    
-    plt.clf()
-    fig = plt.figure()
-    ax = plt.axes()
-    ax.plot(msg.data)
-    fig.canvas.draw()
+    def unsubscribe(self):
+        self._sub.unregister()
 
-    img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    plt.close()
+    def _process(self, msg):
+        plt.clf()
+        fig = plt.figure()
+        ax = plt.axes()
+        ax.plot(msg.data)
+        fig.canvas.draw()
 
-    msg = br.cv2_to_imgmsg(img, encoding="rgb8")
-    pub.publish(msg)
+        img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        plt.close()
+
+        msg = self.br.cv2_to_imgmsg(img, encoding="rgb8")
+        pub.publish(msg)
 
 if __name__ == "__main__":
 
     rospy.init_node("histogram_viz")
-    pub = rospy.Publisher("histogram_viz", Image, queue_size=0)
-    rospy.Subscriber("histogram", IntList, callback)
-    print("Histogram viz ready...")
+    app = Histogrammer()
     rospy.spin()
