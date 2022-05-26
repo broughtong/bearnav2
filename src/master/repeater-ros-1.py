@@ -61,7 +61,7 @@ class ActionServer():
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("distance", Float32, self.distanceCB)
+        self.distance_sub = rospy.Subscriber("distance", Float32, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
@@ -189,15 +189,13 @@ class ActionServer():
         self.mapName = goal.mapName
 
         #replay bag
-        start = rospy.Time.now()
         sim_start = None
+        start = None
         self.isRepeating = True
-        rospy.logwarn("Warm up")
-        time.sleep(2)
-        rospy.logwarn("Starting")
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:
+                start = now
                 sim_start = ts
             else:
                 real_time = now - start
