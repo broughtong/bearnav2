@@ -5,7 +5,7 @@ import cv2
 import alignment
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from bearnav2.msg import Alignment, IntList
+from bearnav2.msg import Alignment, FloatList
 from dynamic_reconfigure.server import Server
 from bearnav2.cfg import AlignmentConfig
 
@@ -33,7 +33,7 @@ def callbackB(msg):
     m.uncertainty = uncertainty
     pub.publish(m)
 
-    hm = IntList()
+    hm = FloatList()
     hm.data = hist
     pub_hist.publish(hm)
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     srv = Server(AlignmentConfig, config_cb)
 
     pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
-    pub_hist = rospy.Publisher("histogram", IntList, queue_size=0)
+    pub_hist = rospy.Publisher("histogram", FloatList, queue_size=0)
 
     rospy.Subscriber("alignment/inputA", Image, callbackB, queue_size=1)
     rospy.Subscriber("alignment/inputB", Image, callbackA, queue_size=1)

@@ -163,15 +163,16 @@ class ActionServer():
         self.mapName = goal.mapName
 
         #replay bag
-        start = rospy.Time.now()
+        start = None
         sim_start = None
         self.isRepeating = True
         rospy.logwarn("Warm up")
-        time.sleep(5)
+        time.sleep(3)
         rospy.logwarn("Starting")
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:
+                start = rospy.Time.now()
                 sim_start = ts
             else:
                 real_time = now - start

@@ -59,7 +59,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     FILES
     Alignment.msg
-    IntList.msg
+    FloatList.msg
     FeatureLocations.msg
 )
 

@@ -6,7 +6,7 @@ import rospy
 import cv2
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from bearnav2.msg import IntList
+from bearnav2.msg import FloatList
 import matplotlib.pyplot as plt
 import numpy as np
 from topic_tools import LazyTransport
@@ -14,13 +14,16 @@ from topic_tools import LazyTransport
 class Histogrammer(LazyTransport):
     def __init__(self):
         super(self.__class__, self).__init__()
-        self.pub = rospy.Publisher("histogram_viz", Image, queue_size=0) 
+        self.pub = self.advertise("/bearnav2/histogram_viz", Image, queue_size=0) 
         self.br = CvBridge()
+        rospy.logwarn("here")
 
     def subscribe(self):
-        self._sub = rospy.Subscriber("histogram", IntList, self._process)
+        rospy.logwarn("Subsci")
+        self._sub = rospy.Subscriber("/bearnav2/histogram", FloatList, self._process)
 
     def unsubscribe(self):
+        rospy.logwarn("de-Subsci")
         self._sub.unregister()
 
     def _process(self, msg):
@@ -30,12 +33,12 @@ class Histogrammer(LazyTransport):
         ax.plot(msg.data)
         fig.canvas.draw()
 
-        img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
         img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
         plt.close()
 
         msg = self.br.cv2_to_imgmsg(img, encoding="rgb8")
-        pub.publish(msg)
+        self.pub.publish(msg)
 
 if __name__ == "__main__":
 
