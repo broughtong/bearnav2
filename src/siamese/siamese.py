@@ -37,7 +37,7 @@ class SiameseNetwork:
         return hists
 
     def image_to_tensor(self, imgs):
-        image_list = [self.resize(self.to_tensor(np.array(self.cv_parser.imgmsg_to_cv2(img))))
+        image_list = [self.resize(self.to_tensor(np.array(self.cv_parser.imgmsg_to_cv2(img))).to(self.device))
                       for img in imgs]
-        stacked_tensor = t.stack(image_list).to(self.device)
+        stacked_tensor = t.stack(image_list)
         return stacked_tensor
