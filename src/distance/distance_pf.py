@@ -24,8 +24,9 @@ class DistancePF:
         self.last_time = None
         self.particles = None
 
-        self.odom_only = False
-        self.visual_only = True
+        # This must be set to odom only during recording otherwise no images are going to be saved
+        self.odom_only = True
+        self.visual_only = False
 
         # for debug
         self.raw_odom = None

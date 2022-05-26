@@ -13,10 +13,8 @@ pub = None
 br = CvBridge()
 
 def callback(msg):
-    if pub.get_num_connections() == 0:
-        return
-
-    rospy.loginfo("histogram received")
+    # if pub.get_num_connections() == 0:
+    #     return
 
     plt.clf()
     fig = plt.figure()
@@ -30,12 +28,13 @@ def callback(msg):
     plt.close()
 
     msg = br.cv2_to_imgmsg(img, encoding="rgb8")
+    rospy.logwarn("histogram published")
     pub.publish(msg)
 
 if __name__ == "__main__":
 
     rospy.init_node("histogram_viz")
-    pub = rospy.Publisher("histogram_viz", Image, queue_size=0)
-    rospy.Subscriber("/bearnav2/histogram", FloatList, callback)
+    pub = rospy.Publisher("histogram_viz", Image, queue_size=1)
+    rospy.Subscriber("/bearnav2/histogram", FloatList, callback, queue_size=1)
     print("Histogram viz ready...")
     rospy.spin()

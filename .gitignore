@@ -1,4 +1,5 @@
 __pycache__
 *.pyc
+src/alignment/backends/sem_landmarks_models
 *.swp
 *.swo

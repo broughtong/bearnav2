@@ -39,7 +39,7 @@ class ActionServer():
     def __init__(self):
 
         #some vars
-        self.pf_delay = 3
+        self.pf_delay = 6
         self.pf_counter = 0
         self.pf_span = 2
 
@@ -193,7 +193,7 @@ class ActionServer():
         sim_start = None
         self.isRepeating = True
         rospy.logwarn("Warm up")
-        time.sleep(5)
+        time.sleep(2)
         rospy.logwarn("Starting")
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
