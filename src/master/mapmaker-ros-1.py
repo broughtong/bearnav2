@@ -5,6 +5,7 @@ import os
 import actionlib
 import cv2
 import rosbag
+import roslib
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
@@ -25,6 +26,14 @@ class ActionServer():
         self.nextStep = 0
         self.bag = None
         self.lastDistance = None
+
+        self.additionalTopics = rospy.get_param("~additional_record_topics")
+        self.additionalTopics = self.additionalTopics.split(" ")
+        self.additionalTopicSubscibers = []
+        for topic in self.additionalTopics:
+            msgType = roslib.message.get_message_class(topic)
+            s = rospy.Subscriber(topic, msgType, self.miscCB, (topic), queue_size=1)
+            self.additionalTopicSubscribers.append(s)
     
         rospy.loginfo("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -47,6 +56,12 @@ class ActionServer():
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
         rospy.loginfo("Server started, awaiting goal")
+
+    def miscCB(self, msg, args):
+        if self.isMapping:
+            topicName = args[0]
+            rospy.logdebug("Adding misc from %s" % (topicName))
+            self.bag.write(topicName, msg) 
 
     def imageCB(self, msg):
 
@@ -72,7 +87,6 @@ class ActionServer():
         self.checkShutdown()
 
     def joyCB(self, msg):
-
         if self.isMapping:
             rospy.logdebug("Adding joy")
             self.bag.write(self.joy_topic, msg) 
