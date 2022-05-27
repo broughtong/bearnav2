@@ -107,6 +107,7 @@ class DistancePF:
         hists = np.array([hist.data for hist in service_out.histograms[:-1]])
         # interpolate
         hist_width = np.shape(hists)[1]
+        # TODO: this interpolation does not work - do grid interpolation
         xx, yy = np.meshgrid(dists, np.linspace(-255, 255, hist_width))
         prob_interp = interpolate.interp2d(xx, yy, np.transpose(hists), kind="linear")
         # get probabilites of particles
