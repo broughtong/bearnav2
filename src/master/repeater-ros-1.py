@@ -44,8 +44,8 @@ class ActionServer():
 
         rospy.logdebug("Connecting to alignment module")
         self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
-        self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=1)
-        self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=1)
+        self.al_1_pub = rospy.Publisher("alignment/inputCurrent", Image, queue_size=1)
+        self.al_2_pub = rospy.Publisher("alignment/inputMap", Image, queue_size=1)
         self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
 
         rospy.logdebug("Setting up published for commands")
