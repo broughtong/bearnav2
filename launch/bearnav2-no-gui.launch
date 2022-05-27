@@ -8,9 +8,6 @@
     <arg name="odom_topic" default="/husky_velocity_controller/odom" />
 
     <group ns="bearnav2">
-        
-        <!-- calculates which way to steer from images -->
-        <node pkg="bearnav2" type="alignment-ros-1.py" name="alignment" respawn="false" output="screen" args="$(find bearnav2)/src/alignment/config.yaml -OO" />
 
         <!-- responsible for calculating how far the robot has travelled -->
         <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" args="-OO">

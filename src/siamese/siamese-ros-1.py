@@ -5,7 +5,7 @@ import cv2
 import siamese
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from bearnav2.msg import Alignment, IntList, FloatList
+from bearnav2.msg import Alignment, FloatList
 from bearnav2.srv import SiameseNet, SiameseNetResponse
 
 pub = None

@@ -22,8 +22,13 @@ def callback(msg):
     fig = plt.figure()
     ax = plt.axes()
     ax.title.set_text("Particle filter")
-    _, bins = np.histogram(msg.data, bins=21)
-    ax.hist(msg.data, bins)
+    msg_size = len(msg.data)
+    distances = msg.data[:msg_size//2]
+    displacements = msg.data[msg_size//2:]
+    ax.plot(displacements, distances, "o")
+    ax.set_xlim([-192, 192])
+    ax.set_ylim([np.mean(distances) - 0.75, np.mean(distances) + 0.75])
+    ax.grid()
     fig.canvas.draw()
 
     img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')

@@ -39,7 +39,7 @@ class ActionServer():
     def __init__(self):
 
         #some vars
-        self.pf_delay = 6
+        self.pf_delay = 3
         self.pf_counter = 0
         self.pf_span = 2
 
@@ -68,9 +68,7 @@ class ActionServer():
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
 
         rospy.logdebug("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
-        self.al_1_pub = rospy.Publisher("alignment/inputA", Image, queue_size=1)
-        self.al_2_pub = rospy.Publisher("alignment/inputB", Image, queue_size=1)
+        self.al_sub = rospy.Subscriber("distance/output", Alignment, self.alignCB)
         self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=1)
         self.pf_pub = rospy.Publisher("pf_img_input", PFInput, queue_size=1)
 
@@ -86,22 +84,10 @@ class ActionServer():
     def imageCB(self, msg):
         if self.isRepeating:
             self.pf_counter += 1
-            self.al_1_pub.publish(msg)
             self.img = True
             self.checkShutdown()
             if not self.pf_counter % self.pf_delay:
                 self.pubClosestImgList(msg)
-
-    def pubClosestImg(self):
-        if len(self.map_images) < 1:
-            rospy.logwarn("Repeater - No map files")
-            return
-
-        nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
-
-        if self.isRepeating:
-            msg = self.map_images[nearest_map_idx]
-            self.al_2_pub.publish(msg)
 
     def pubClosestImgList(self, img_msg):
         if len(self.map_images) > 0:
@@ -114,6 +100,7 @@ class ActionServer():
             live_imgs = ImageList([img_msg])
             # rospy.logwarn(distances)
             pf_msg = PFInput()
+            pf_msg.header = img_msg.header
             pf_msg.map_images = map_imgs
             pf_msg.live_images = live_imgs
             pf_msg.distances = distances
@@ -128,7 +115,6 @@ class ActionServer():
         rospy.logdebug("Triggered wp")
         # if dist > self.curr_dist: maybe this condition is not bad!
         self.curr_dist = dist
-        self.pubClosestImg()
 
         if self.endPosition != 0 and dist >= self.endPosition:
             self.isRepeating = False
