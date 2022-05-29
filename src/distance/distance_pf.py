@@ -7,15 +7,20 @@ from bearnav2.msg import FloatList
 
 
 def numpy_softmax(arr):
-    tmp = np.exp(arr) / np.sum(np.sum(np.exp(arr)))
+    tmp = np.exp(arr) / np.sum(np.exp(arr))
     return tmp
+
+
+def first_nonzero(arr, axis, invalid_val=-1):
+    mask = arr!=0
+    return np.array(np.where(mask.any(axis=axis), mask.argmax(axis=axis), invalid_val))
 
 
 class DistancePF:
     def __init__(self):
         self.particles_num = 200
         self.odom_var = 0.1
-        self.displac_var = 4  # in pixels
+        self.displac_var = 3  # in pixels
         self.interp_coef = 10
         self.particles_frac = 2
 
@@ -75,6 +80,8 @@ class DistancePF:
         dz = self.last_odom.pose.pose.position.z - odom_msg.pose.pose.position.z
         dist_diff = (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
         self.raw_odom += dist_diff
+        trans_tmp = [t.data for t in img_msg.transitions]
+        trans = np.cumsum(trans_tmp, axis=1)
 
         # TODO: visual only and odom only needs to output alignment too!
         if self.visual_only:
@@ -107,35 +114,60 @@ class DistancePF:
         hists = np.array([hist.data for hist in service_out.histograms[:-1]])
         # interpolate
         hist_width = np.shape(hists)[1]
-        # TODO: this interpolation does not work - do grid interpolation
-        xx, yy = np.meshgrid(dists, np.linspace(-255, 255, hist_width))
-        prob_interp = interpolate.interp2d(xx, yy, np.transpose(hists), kind="linear")
+        xs, ys = np.meshgrid(dists, np.linspace(-255, 255, hist_width))
+        positions = np.vstack([xs.ravel(), ys.ravel()])
+        idx, idy = np.meshgrid(np.arange(hists.shape[0]), np.arange(hists.shape[1]))
+        indices = np.vstack([idx.ravel(), idy.ravel()])
+        particle_prob = interpolate.griddata(np.transpose(positions),
+                                             hists[indices[0], indices[1]],
+                                             (self.particles[0], self.particles[1]),
+                                             method="nearest")
         # get probabilites of particles
-        # particle_prob = numpy_softmax(prob_interp(self.particles[0], self.particles[1]))
-        particle_prob = prob_interp(self.particles[0], self.particles[1])
+        particle_prob = numpy_softmax(particle_prob)
         # choose best candidates and reduce the number of particles
         part_indices = np.arange(self.particles_num)
         chosen_indices = np.random.choice(part_indices, int(self.particles_num/self.particles_frac),
-                                          p=particle_prob[0]/np.sum(particle_prob[0]))
+                                          p=particle_prob/np.sum(particle_prob))
         self.particles = self.particles[:, chosen_indices]
-        print(self.particles.shape)
 
-        for i in range(100):
-            rospy.logwarn(self.particles[:, i])
-            rospy.logwarn(particle_prob[0, i]/np.sum(particle_prob[0]))
+        # debug the actual probabilities
+        # for i in range(100):
+        #     rospy.logwarn(self.particles[:, i])
+        #     rospy.logwarn(particle_prob[i]/np.sum(particle_prob))
 
-        # motion step
-        hist_diff = np.argmax(np.array(service_out.histograms[-1].data)) - hist_width//2
+        # motion step ---
+        hist_diff = (np.argmax(np.array(service_out.histograms[-1].data)) - hist_width//2) * 8
 
-        self.particles = np.concatenate([np.transpose(self.particles) + np.array((dist_diff, hist_diff)) +
-                                         np.random.normal(loc=(0, 0),
-                                                          scale=(self.odom_var * dist_diff, self.displac_var),
-                                                          size=(self.particles.shape[1], 2))
-                                         for _ in range(self.particles_frac)]).transpose()
-        rospy.logwarn(np.array((dist_diff, hist_diff)))
+        # get map transition for each particle
+        mat_dists = np.transpose(np.matrix(dists))
+        p_distances = np.matrix(self.particles[0, :])
+        rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
+        closest_transition = np.transpose(np.clip(np.argmin(np.abs(mat_dists - p_distances), axis=0), 0, len(dists) - 2))
+        dists_diffs = np.diff(dists)
+        traveled_fracs = dist_diff / dists_diffs
+        # rospy.logwarn(str(np.mean(closest_transition)) + " +- " + str(np.std(closest_transition)) + " " + str(np.shape(closest_transition)))
+        trans_cumsum_per_particle = trans[closest_transition]
+        frac_per_particle = traveled_fracs[closest_transition]
+        # generate new particles
+        out = []
+        trans_diff = None
+        for _ in range(self.particles_frac):
+            rolls = np.random.rand(self.particles.shape[1])
+            indices = first_nonzero(np.matrix(trans_cumsum_per_particle) >= np.transpose(np.matrix(rolls)), 1)
+            trans_diff = np.array(((indices - hist_width//2) * 8) * frac_per_particle)
+            particle_shifts = np.concatenate((np.ones(trans_diff.shape) * dist_diff, hist_diff - trans_diff), axis=1)
+            moved_particles = np.transpose(self.particles) + particle_shifts + \
+                              np.random.normal(loc=(0, 0),
+                                               scale=(self.odom_var * dist_diff, self.displac_var),
+                                               size=(self.particles.shape[1], 2))
+            out.append(moved_particles)
+        self.particles = np.concatenate(out).transpose()
+
+        # rospy.logwarn(np.array((dist_diff, hist_diff)))
         particles_out = self.particles.flatten()
         self.particles_pub.publish(particles_out)
-        rospy.logwarn("Outputted position: " + str(np.mean(self.particles)) + " +- " + str(np.std(self.particles)) + " vs raw odom: " + str(self.raw_odom))
+        rospy.logwarn("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])) + " vs raw odom: " + str(self.raw_odom))
+        rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transition: " + str(np.mean(trans_diff)))
         self.last_odom = odom_msg
         self.last_image = imgsB
         return self.get_position(), True

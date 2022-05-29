@@ -11,7 +11,7 @@ from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Header, Float32
 from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment, PFInput, ImageList
-from bearnav2.srv import SetDist
+from bearnav2.srv import SetDist, SiameseNet
 from cv_bridge import CvBridge
 import numpy as np
 import threading
@@ -20,7 +20,12 @@ import threading
 BR = CvBridge()
 
 
-def load_map(mappath, images, distances):
+def numpy_softmax(arr):
+    tmp = np.exp(arr) / np.sum(np.exp(arr))
+    return tmp
+
+
+def load_map(mappath, images, distances, trans_hists, nn_service):
     tmp = []
     for file in list(os.listdir(mappath)):
         if file.endswith(".jpg"):
@@ -30,6 +35,15 @@ def load_map(mappath, images, distances):
     for idx, dist in enumerate(tmp):
         distances.append(float(dist))
         images.append(BR.cv2_to_imgmsg(cv2.imread(os.path.join(mappath, dist + ".jpg"))))
+        if len(images) >= 2 and nn_service is not None:
+            msg1 = ImageList([images[-2]])
+            msg2 = ImageList([images[-1]])
+            try:
+                resp1 = nn_service(msg1, msg2)
+                trans_hists.append(numpy_softmax(resp1.histograms[0].data))
+                rospy.logwarn("transition between images is " + str(np.argmax(trans_hists[-1]) - np.size(trans_hists[-1])//2))
+            except rospy.ServiceException as e:
+                rospy.logwarn("Service call failed: %s" % e)
         rospy.loginfo("Loaded map image: " + str(dist) + str(".jpg"))
     rospy.logwarn("Whole map sucessfully loaded")
 
@@ -51,9 +65,14 @@ class ActionServer():
         self.isRepeating = False
         self.map_images = []
         self.map_distances = []
+        self.map_transitions = []
         self.endPosition = None
 
         self.curr_dist = 0
+
+        rospy.logdebug("Waiting ")
+        rospy.wait_for_service('siamese_network')
+        self.nn_service = rospy.ServiceProxy('siamese_network', SiameseNet, persistent=True)
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -68,9 +87,10 @@ class ActionServer():
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
 
         rospy.logdebug("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("distance/output", Alignment, self.alignCB)
+        # self.al_sub = rospy.Subscriber("distance/output", Alignment, self.alignCB)
         self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=1)
         self.pf_pub = rospy.Publisher("pf_img_input", PFInput, queue_size=1)
+        self.debug_map_img = rospy.Publisher("map_img", Image, queue_size=1)
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
@@ -97,6 +117,7 @@ class ActionServer():
             upper_bound = min(nearest_map_idx + self.pf_span + 1, len(self.map_distances))
             map_imgs = ImageList(self.map_images[lower_bound:upper_bound])
             distances = self.map_distances[lower_bound:upper_bound]
+            transitions = self.map_transitions[lower_bound:upper_bound - 1]
             live_imgs = ImageList([img_msg])
             # rospy.logwarn(distances)
             pf_msg = PFInput()
@@ -104,7 +125,11 @@ class ActionServer():
             pf_msg.map_images = map_imgs
             pf_msg.live_images = live_imgs
             pf_msg.distances = distances
+            pf_msg.transitions = transitions
             self.pf_pub.publish(pf_msg)
+
+            # DEBUGGING
+            self.debug_map_img.publish(self.map_images[nearest_map_idx])
 
     def distanceCB(self, msg):
         dist = msg.data
@@ -160,7 +185,7 @@ class ActionServer():
 
         self.parseParams(os.path.join(goal.mapName, "params"))
 
-        map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances))
+        map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances, self.map_transitions, self.nn_service))
         map_loader.start()
 
         #set distance to zero

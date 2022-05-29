@@ -63,7 +63,6 @@ add_message_files(
     FloatList.msg
     FeatureLocations.msg
     ImageList.msg
-    Histogram.msg
     PFInput.msg
 )
 
