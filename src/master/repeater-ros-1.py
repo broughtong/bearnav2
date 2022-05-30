@@ -205,7 +205,6 @@ class ActionServer():
         #replay bag
         start = None
         sim_start = None
-        self.isRepeating = True
         rospy.logwarn("Starting")
     
         #create publishers
@@ -216,6 +215,20 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
+        # waiting for some map images to start repeating ...
+        tmp_c = 0
+        while len(self.map_images) <= 2:
+            rospy.logwarn("waiting for more images")
+            time.sleep(1)
+            tmp_c += 1
+            if tmp_c >= 5:
+                result = MapRepeaterResult()
+                result.success = False
+                self.server.set_succeeded(result)
+                return
+
+        self.isRepeating = True
+        
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:
