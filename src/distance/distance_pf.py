@@ -33,7 +33,7 @@ class DistancePF:
 
         # This must be set to odom only during recording otherwise no images are going to be saved
         self.odom_only = False
-        self.visual_only = False
+        self.visual_only = True
 
         # for debug only
         self.raw_odom = None
