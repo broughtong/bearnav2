@@ -53,8 +53,8 @@ if __name__ == "__main__":
     pub = rospy.Publisher("alignment/output", Alignment, queue_size=1)
     pub_hist = rospy.Publisher("histogram", FloatList, queue_size=1)
 
-    rospy.Subscriber("alignment/inputA", Image, callbackB, queue_size=1)
-    rospy.Subscriber("alignment/inputB", Image, callbackA, queue_size=1)
+    rospy.Subscriber("alignment/inputCurrent", Image, callbackB, queue_size=1)
+    rospy.Subscriber("alignment/inputMap", Image, callbackA, queue_size=1)
 
     rospy.logdebug("Aligner Ready...")
     rospy.spin()
