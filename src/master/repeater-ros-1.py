@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import time
 import rospy
+import roslib
 import os
 import actionlib
 import cv2
@@ -167,6 +168,15 @@ class ActionServer():
         sim_start = None
         self.isRepeating = True
         rospy.logwarn("Starting")
+    
+        #create publishers
+        additionalPublishers = {}
+        for topic, message, ts in self.bag.read_messages():
+            if topic is not self.savedOdomTopic:
+                topicType = self.bag.get_type_and_topic_info()[1][topic][0]
+                topicType = roslib.message.get_message_class(topicType)
+                additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
+
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:
@@ -177,7 +187,10 @@ class ActionServer():
                 sim_time = ts - sim_start
                 if sim_time > real_time:
                     rospy.sleep(sim_time - real_time)
-            self.joy_pub.publish(message)
+            if topic == self.savedOdomTopic:
+                self.joy_pub.publish(message)
+            else:
+                additionalPublishers[topic].publish(message)
             if self.isRepeating == False:
                 rospy.loginfo("stopped!")
                 break
@@ -206,6 +219,9 @@ class ActionServer():
             if "stepSize" in line[0]:
                 rospy.logdebug("Setting step size to: %s" % (line[1]))
                 self.mapStep = float(line[1])
+            if "odomTopic" in line[0]:
+                rospy.logdebug("Saved odometry topic is: %s" % (line[1]))
+                self.savedOdomTopic = line[1] 
 
     def checkShutdown(self):
         if self.server.is_preempt_requested():

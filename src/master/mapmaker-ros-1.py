@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import time
 import rospy
+import rostopic
 import os
 import actionlib
 import cv2
@@ -29,9 +30,9 @@ class ActionServer():
 
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
-        self.additionalTopicSubscibers = []
+        self.additionalTopicSubscribers = []
         for topic in self.additionalTopics:
-            msgType = roslib.message.get_message_class(topic)
+            msgType = rostopic.get_topic_class(topic)[0]
             s = rospy.Subscriber(topic, msgType, self.miscCB, (topic), queue_size=1)
             self.additionalTopicSubscribers.append(s)
     
@@ -59,7 +60,7 @@ class ActionServer():
 
     def miscCB(self, msg, args):
         if self.isMapping:
-            topicName = args[0]
+            topicName = args
             rospy.logdebug("Adding misc from %s" % (topicName))
             self.bag.write(topicName, msg) 
 
@@ -113,7 +114,8 @@ class ActionServer():
             try:
                 os.mkdir(goal.mapName)
                 with open(goal.mapName + "/params", "w") as f:
-                    f.write("stepSize: " + str(self.mapStep))
+                    f.write("stepSize: %s\n" % (self.mapStep))
+                    f.write("odomTopic: %s\n" % (self.joy_topic))
             except:
                 rospy.logwarn("Unable to create map directory, ignoring")
                 result = MapRepeaterResult()
