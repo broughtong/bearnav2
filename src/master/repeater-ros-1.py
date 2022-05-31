@@ -12,7 +12,7 @@ from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment
-from bearnav2.srv import SetDist
+from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse
 from cv_bridge import CvBridge
 import numpy as np
 
@@ -30,9 +30,11 @@ class ActionServer():
         self.isRepeating = False
         self.fileList = []
         self.endPosition = None
+        self.clockGain = 1.0
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
+        rospy.Service('set_clock_gain', SetClockGain, self.setClockGain)
 
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
@@ -57,6 +59,10 @@ class ActionServer():
         self.server = actionlib.SimpleActionServer("repeater", MapRepeaterAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
         rospy.loginfo("Server started, awaiting goal")
+
+    def setClockGain(self, req):
+        self.clockGain = req.gain 
+        return SetClockGainResponse()
 
     def imageCB(self, msg):
 
@@ -162,12 +168,6 @@ class ActionServer():
         rospy.logwarn("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
-
-        #replay bag
-        start = None
-        sim_start = None
-        self.isRepeating = True
-        rospy.logwarn("Starting")
     
         #create publishers
         additionalPublishers = {}
@@ -177,6 +177,13 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
+        #replay bag
+        start = None
+        sim_start = None
+        self.isRepeating = True
+        rospy.logwarn("Starting")
+
+        msgBuf = None
         for topic, message, ts in self.bag.read_messages():
             now = rospy.Time.now()
             if sim_start is None:
@@ -186,11 +193,26 @@ class ActionServer():
                 real_time = now - start
                 sim_time = ts - sim_start
                 if sim_time > real_time:
-                    rospy.sleep(sim_time - real_time)
+                    sleepDuration = sim_time - real_time
+                    totalSleepDuration = sleepDuration * self.clockGain
+                    if self.clockGain > 1.0:
+                        while totalSleepDuration > 0:
+                            if sleepDuration < totalSleepDuration:
+                                rospy.sleep(sleepDuration)
+                                totalSleepDuration -= sleepDuration
+                                if topic == self.savedOdomTopic:
+                                    self.joy_pub.publish(message)
+                                else:
+                                    additionalPublishers[topic].publish(message)
+                            else:
+                                rospy.sleep(totalSleepDuration)
+                    else:
+                        rospy.sleep(totalSleepDuration)
             if topic == self.savedOdomTopic:
                 self.joy_pub.publish(message)
             else:
                 additionalPublishers[topic].publish(message)
+            msgBuf = (topic, message)
             if self.isRepeating == False:
                 rospy.loginfo("stopped!")
                 break

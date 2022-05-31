@@ -1,6 +1,7 @@
 #goal definition
 float64 startPos
 float64 endPos
+uint8 traversals
 string mapName
 ---
 #result definition

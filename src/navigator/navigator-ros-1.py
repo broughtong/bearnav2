@@ -4,10 +4,12 @@ import navigator
 from geometry_msgs.msg import Twist
 from bearnav2.msg import Alignment
 from bearnav2.cfg import NavigatorConfig
+from bearnav2.srv import SetClockGain, SetClockGainResponse
 from dynamic_reconfigure.server import Server
 
 pub = None
 n = navigator.Navigator()
+gainSrv = None
 
 def callbackVel(msg):
     driven = n.process(msg)
@@ -18,10 +20,26 @@ def callbackCorr(msg):
 
 def callbackReconfigure(config,level):
     n.reconfig(config)
+
+    #if velocity is increased, time at that velocity needs
+    #to be decreased, so we invert the clock gain
+    try:
+        s = SetClockGain()
+        gain = 1/cfg["velocity_gain"]
+        if type(s.gain) == float: 
+            s.gain = gain
+        else:
+            s.gain = 1.0
+        gainSrv(s)
+    except:
+        rospy.logwarn("Unable to set clock gain")
+        
     return config
 
 if __name__ == "__main__":
     rospy.init_node("navigator")
+    rospy.wait_for_service('set_clock_gain')
+    gainSrv = rospy.ServiceProxy('set_clock_gain', SetClockGain)
     cmd_vel_topic = rospy.get_param("~cmd_vel_topic")
     pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=0)
     rospy.Subscriber("map_vel", Twist, callbackVel)

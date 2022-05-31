@@ -1,7 +1,7 @@
 #goal definition
+bool saveImgsForViz
 string mapName
 bool start
-bool saveImgsForViz
 ---
 #result definition
 bool success
