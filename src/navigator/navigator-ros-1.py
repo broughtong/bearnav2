@@ -24,13 +24,11 @@ def callbackReconfigure(config,level):
     #if velocity is increased, time at that velocity needs
     #to be decreased, so we invert the clock gain
     try:
-        s = SetClockGain()
-        gain = 1/cfg["velocity_gain"]
-        if type(s.gain) == float: 
-            s.gain = gain
+        gain = 1/config["velocity_gain"]
+        if type(gain) == float: 
+            gainSrv(gain)
         else:
-            s.gain = 1.0
-        gainSrv(s)
+            gainSrv(1.0)
     except:
         rospy.logwarn("Unable to set clock gain")
         
