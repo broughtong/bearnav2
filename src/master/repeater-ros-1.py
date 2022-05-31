@@ -178,36 +178,26 @@ class ActionServer():
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
         #replay bag
-        start = None
-        sim_start = None
-        self.isRepeating = True
         rospy.logwarn("Starting")
-
-        msgBuf = None
+        previousMessageTime = None
+        expectedMessageTime = None
+        self.isRepeating = True
+        start = rospy.Time.now()
         for topic, message, ts in self.bag.read_messages():
+            #rosbag virtual clock
             now = rospy.Time.now()
-            if sim_start is None:
-                start = now
-                sim_start = ts
+            if previousMessageTime is None:
+                previousMessageTime = ts
+                expectedMessageTime = now
             else:
-                real_time = now - start
-                sim_time = ts - sim_start
-                if sim_time > real_time:
-                    sleepDuration = sim_time - real_time
-                    totalSleepDuration = sleepDuration * self.clockGain
-                    if self.clockGain > 1.0:
-                        while totalSleepDuration > 0:
-                            if sleepDuration < totalSleepDuration:
-                                rospy.sleep(sleepDuration)
-                                totalSleepDuration -= sleepDuration
-                                if topic == self.savedOdomTopic:
-                                    self.joy_pub.publish(message)
-                                else:
-                                    additionalPublishers[topic].publish(message)
-                            else:
-                                rospy.sleep(totalSleepDuration)
-                    else:
-                        rospy.sleep(totalSleepDuration)
+                simulatedTimeToGo = ts - previousMessageTime
+                correctedSimulatedTimeToGo = simulatedTimeToGo * self.clockGain
+                error = now - expectedMessageTime
+                sleepTime = correctedSimulatedTimeToGo - error
+                expectedMessageTime = now + sleepTime
+                rospy.sleep(sleepTime)
+                previousMessageTime = ts
+            #publish
             if topic == self.savedOdomTopic:
                 self.joy_pub.publish(message)
             else:
@@ -222,8 +212,10 @@ class ActionServer():
                 result.success = False
                 self.server.set_succeeded(result)
                 return
-
         self.isRepeating = False
+        end = rospy.Time.now()
+        dur = end - start
+        rospy.logwarn("Rosbag runtime: %f" % (dur.to_sec()))
 
         rospy.loginfo("Goal Complete!")
         result = MapRepeaterResult()
