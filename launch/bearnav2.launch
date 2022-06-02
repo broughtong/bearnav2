@@ -6,18 +6,24 @@
     <arg name="cmd_vel_pub" default="/nav/cmd_vel" doc="The topic that cmd_vel messages will be published on when replaying a map (can be the same as cmd_vel_sub)" />
     <arg name="cmd_vel_sub" default="/husky_velocity_controller/cmd_vel" doc="The topic that cmd_vel messages will be recorded from when making a map (can be the same as cmd_vel_pub)" />
     <arg name="odom_topic" default="/husky_velocity_controller/odom" doc="The topic that odometry information will be read from" />
-    <arg name="additional_record_topics" default="/sound_play/goal" doc="Use this parameter to record any additional topics you wish to be in your map and repeated each traversal. Space separated topics names." />
+    <arg name="additional_record_topics" default="" doc="Use this parameter to record any additional topics you wish to be in your map and repeated each traversal. Space separated topics names." />
 
     <!-- You should not need to edit anything below this line. -->
 
     <group ns="bearnav2">
 
-        <!-- responsible for calculating how far the robot has travelled -->
+        <!-- responsible for calculating how far the robot has travelled - this one is used by mapmaker -->
         <node pkg="bearnav2" type="distance-ros-1.py" name="distance" respawn="true" args="-OO">
             <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_sub)"/>
             <param name="odom_topic" type="string" value="$(arg odom_topic)"/>
         </node>
         
+        <!-- distance node responsible for filtering - this one is used by repeater -->
+        <node pkg="bearnav2" type="distance_pf-ros-1.py" name="distance_pf" respawn="true" args="-OO">
+            <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_sub)"/>
+            <param name="odom_topic" type="string" value="$(arg odom_topic)"/>
+        </node>
+
         <!-- node for creating maps -->
         <node pkg="bearnav2" type="mapmaker-ros-1.py" name="mapmaker" respawn="true" args="-OO">
             <param name="camera_topic" type="string" value="$(arg camera_topic)" />

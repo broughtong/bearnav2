@@ -79,16 +79,16 @@ class ActionServer():
         rospy.wait_for_service("set_dist")
 
         rospy.logdebug("Resetting distance node")
-        self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
+        self.distance_reset_srv = rospy.ServiceProxy("set_dist_pf", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("distance", Float32, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("distance_pf", Float32, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
 
         rospy.logdebug("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("distance/output", Alignment, self.alignCB)
+        self.al_sub = rospy.Subscriber("distance_pf/alignment", Alignment, self.alignCB)
         #self.al_1_pub = rospy.Publisher("alignment/inputCurrent", Image, queue_size=1)
         #self.al_2_pub = rospy.Publisher("alignment/inputMap", Image, queue_size=1)
         self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=1)
