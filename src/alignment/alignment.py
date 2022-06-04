@@ -38,7 +38,7 @@ class Alignment:
 
     def process(self, imgA, imgB):
 
-        rospy.logwarn("recieved pair of imgs")
+        #rospy.logwarn("recieved pair of imgs")
         peak, uncertainty = 0, 0
         hist = []
 
@@ -88,7 +88,7 @@ class Alignment:
         elif self.method == "SIAM":
             import torch as t
             with t.no_grad():
-                rospy.loginfo('Image pair received ...')
+                #rospy.loginfo('Image pair received ...')
                 start = time.time()
                 curr_tensor = self.image_to_tensor(imgB)
                 map_tensor = self.image_to_tensor(imgA)

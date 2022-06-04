@@ -72,7 +72,7 @@ class ActionServer():
             self.checkShutdown()
 
     def getClosestImg(self, dist):
-
+        
         if len(self.fileList) < 1:
             rospy.logwarn("Not many map files")
 
@@ -82,27 +82,32 @@ class ActionServer():
         for filename in self.fileList:
             ffilename = float(filename)
             diff = abs(ffilename - dist)
+            #rospy.logwarn("diff %f" % (diff))
             if diff < closestDistance:
+                #rospy.logwarn("Better fit")
                 closestDistance = diff
                 closestFilename = filename
 
-        if self.isRepeating:
-            fn = os.path.join(self.mapName, closestFilename + ".jpg")
-            rospy.logwarn("Opening : " + fn)
-            img = cv2.imread(fn)
-            msg = self.br.cv2_to_imgmsg(img)
-            self.al_2_pub.publish(msg)
+        fn = os.path.join(self.mapName, closestFilename + ".jpg")
+        rospy.logwarn("Opening file: %s dist %f" % (fn, dist))
+        img = cv2.imread(fn)
+        msg = self.br.cv2_to_imgmsg(img)
+        self.al_2_pub.publish(msg)
 
     def distanceCB(self, msg):
-        dist = msg.data
+        
         if self.isRepeating == False:
             return
-        if dist >= self.nextStep:
-            if self.img is None:
-                rospy.logwarn("Warning: no image received")
-            rospy.logdebug("Triggered wp")
-            self.getClosestImg(dist)
-            self.nextStep += self.mapStep
+        
+        if self.img is None:
+            rospy.logwarn("Warning: no image received")
+
+        dist = msg.data
+        self.getClosestImg(dist)
+
+        #if dist >= self.nextStep:
+        #    rospy.logdebug("Triggered wp")
+        #    self.nextStep += self.mapStep
 
         if self.endPosition != 0 and dist >= self.endPosition:
             self.isRepeating = False
