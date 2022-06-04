@@ -31,10 +31,12 @@ class ActionServer():
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
         self.additionalTopicSubscribers = []
-        for topic in self.additionalTopics:
-            msgType = rostopic.get_topic_class(topic)[0]
-            s = rospy.Subscriber(topic, msgType, self.miscCB, (topic), queue_size=1)
-            self.additionalTopicSubscribers.append(s)
+        if self.additionalTopics[0] != "":
+            rospy.logwarn("Recording the following additional topics: " + str(self.additionalTopics))
+            for topic in self.additionalTopics:
+                msgType = rostopic.get_topic_class(topic)[0]
+                s = rospy.Subscriber(topic, msgType, self.miscCB, (topic), queue_size=1)
+                self.additionalTopicSubscribers.append(s)
     
         rospy.loginfo("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
