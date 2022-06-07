@@ -34,7 +34,7 @@
         </node>
         
         <!-- actually does the talking to the robot to make it move -->
-        <node pkg="bearnav2" type="navigator-ros-1.py" name="navigator" respawn="true" args="-OO">
+        <node pkg="bearnav2" type="controller-ros-1.py" name="controller" respawn="true" args="-OO">
             <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_pub)"/>
         </node>
         

@@ -54,5 +54,5 @@ Note: Every line of the message above mapName is internal stuff for ROS, so do n
 ## Principles
 ### Mapping
 ![Mapping](images/Mapping.svg)
-### Navigating
+### Replaying
 ![Navigating](images/Navigating.svg)

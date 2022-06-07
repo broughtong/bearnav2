@@ -104,7 +104,7 @@ add_action_files(
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
  generate_dynamic_reconfigure_options(
-   cfg/Navigator.cfg
+   cfg/Controller.cfg
    cfg/LiveFeatures.cfg
    cfg/Alignment.cfg
    cfg/Preprocessor.cfg

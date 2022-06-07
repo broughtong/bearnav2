@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from geometry_msgs.msg import Twist
 
-class Navigator:
+class Controller:
 
     def __init__(self):
         self.alignment = 0
