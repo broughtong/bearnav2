@@ -4,7 +4,6 @@ import histogram
 import numpy as np
 import os
 import rospy
-from torchvision import transforms
 from scipy import interpolate
 import time
 from backends import traditional
@@ -26,6 +25,7 @@ class Alignment:
         if self.method == "SIAM":
             from backends.siam_model import Siamese, load_model, get_parametrized_model
             import torch as t
+            from torchvision import transforms
             self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
             # init neural network
             model = get_parametrized_model(False, 3, 256, 0, 3, self.device)
