@@ -19,7 +19,7 @@ class BearnavClassic(SensorFusion):
         raise Exception("Bearnav Classic does not support relative alignment")
 
     def process_abs_alignment(self, msg):
-        histogram = self.abs_align_est.message_callback(msg)
+        histogram = self.abs_align_est.displacement_message_callback(msg)
         self.alignment = np.argmax(histogram) - np.size(histogram)//2
         self.publish_data()
 
@@ -28,5 +28,5 @@ class BearnavClassic(SensorFusion):
         raise Exception("Bearnav Classic does not support relative distance")
 
     def process_abs_distance(self, msg):
-        self.distance = self.abs_dist_est.message_callback(msg)
+        self.distance = self.abs_dist_est.abs_dist_message_callback(msg)
         self.publish_data()

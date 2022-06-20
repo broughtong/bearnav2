@@ -5,60 +5,53 @@ from bearnav2.srv import LocalAlignment, LocalAlignmentResponse
 from nav_msgs.msg import Odometry
 from src.sensors.sensor_processing import BearnavClassic
 from src.sensors.backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
+from src.sensors.backends.siamese.siamese import SiameseCNN
 
 
-def relative_alignment_service(msg):
-    """
-    Comparing images without any changes - very close locally and timewise (in same map for example)
-    """
-    fusion.process_rel_alignment(msg)
+def start_subscribes(fusion_class):
+    # subscribers for images and other topics used for alignment and distance estimation
+    if fusion_class.abs_align_est is not None and len(abs_align_topic) > 0:
+        rospy.Subscriber(abs_align_topic, fusion_class.abs_align_est.supported_message_type,
+                         fusion_class.process_abs_alignment, queue_size=1)
+    if fusion_class.abs_dist_est is not None and len(abs_dist_topic) > 0:
+        rospy.Subscriber(abs_dist_topic, fusion_class.abs_dist_est.supported_message_type,
+                         fusion_class.process_abs_distance, queue_size=1)
+    if fusion_class.rel_dist_est is not None and len(rel_dist_topic) > 0:
+        rospy.Subscriber(rel_dist_topic, fusion_class.rel_dist_est.supported_message_type,
+                         fusion_class.process_rel_distance, queue_size=1)
+    if fusion_class.prob_dist_est is not None and len(prob_dist_topic) > 0:
+        rospy.Subscriber(prob_dist_topic, fusion_class.prob_dist_est.supported_message_type,
+                         fusion_class.process_prob_distance, queue_size=1)
 
 
-def absolute_alignment_callback(msg):
-    """
-    Comparing current camera view vs map
-    """
-    fusion.process_abs_alignment(msg)
-
-
-def absolute_distance_callback(msg):
-    """
-    this is message with distance float
-    """
-    fusion.process_abs_distance(msg)
-
-
-def relative_distance_callback(msg):
-    """
-    this is message with distance float
-    """
-    fusion.process_rel_distance(msg)
+def start_services(fusion_class):
+    if fusion_class.rel_align_est is not None and len(rel_align_service) > 0:
+        # TODO: do this also with varying message (service) type - LocalAlignment is not universal
+        relative_image_service = rospy.Service(rel_align_service, LocalAlignment, fusion_class.process_rel_alignment)
+        return relative_image_service
+    return None
 
 
 if __name__ == '__main__':
     rospy.init_node("sensor_processing")
     rospy.loginfo("Sensor processing started!")
 
-    # TODO: choose sensor method
+    # Choose sensor method
+    align_abs = SiameseCNN()
     dist_abs = OdometryAbsolute()
-    align_abs = None    # TODO implement this
 
-    # TODO set here fusion method
+    # Set here fusion method
     fusion = BearnavClassic(align_abs, dist_abs)
 
-    # service for relative alignment
-    if fusion.rel_align_est is not None:
-        # TODO: do this also with varying message (service) type
-        relative_image_service = rospy.Service('relative_alignment', LocalAlignment, relative_alignment_service)
-    # subscribers for images and other topics used for alignment and distance estimation
-    if fusion.abs_align_est is not None:
-        rospy.Subscriber("alignment_absolute", fusion.abs_align_est.supported_message_type,
-                         absolute_alignment_callback, queue_size=1)
-    if fusion.abs_dist_est is not None:
-        rospy.Subscriber("distance_absolute", fusion.abs_dist_est.supported_message_type,
-                         absolute_distance_callback, queue_size=1)
-    if fusion.rel_dist_est is not None:
-        rospy.Subscriber("distance_relative", fusion.rel_dist_est.supported_message_type,
-                         relative_distance_callback, queue_size=1)
+    # TODO: set the topics to subscribe here
+    rel_align_service = "blah_blah"
+    abs_align_topic = "blah_blah"
+    rel_dist_topic = "blah_blah"
+    abs_dist_topic = "blah_blah"
+    prob_dist_topic = "blah_blah"
+
+    # Start listening to topics, and initialize services
+    start_subscribes(fusion)
+    service_handle = start_services(fusion)
 
     rospy.spin()
