@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   dynamic_reconfigure
   actionlib_msgs
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -58,14 +59,17 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 add_message_files(
     FILES
-    Alignment.msg
+    ImageList.msg
     FloatList.msg
     FeatureLocations.msg
+    SensorsInput.msg
+    SensorsOutput.msg
 )
 
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
+   LocalAlignment.srv
    SetDist.srv
    SetClockGain.srv
  )
@@ -86,6 +90,7 @@ add_action_files(
    DEPENDENCIES
    std_msgs
    actionlib_msgs
+   sensor_msgs
 )
 
 ################################################
@@ -123,7 +128,7 @@ add_action_files(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES bearnav2
-CATKIN_DEPENDS rospy std_msgs message_runtime
+CATKIN_DEPENDS rospy std_msgs message_runtime sensor_msgs
 #  DEPENDS system_lib
   CATKIN_DEPENDS actionlib_msgs
 )
