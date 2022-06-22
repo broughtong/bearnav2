@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from std_msgs.msg import Float32
-from sensor_msgs.msg import Image, SensorsOutput
+from sensor_msgs.msg import Image
+from bearnav2.msg import SensorsOutput
 import rospy
 from bearnav2.srv import SetDist, SetDistResponse
+from typing import List
 
 
 """
@@ -23,7 +25,7 @@ class DisplacementEstimator(ABC):
             rospy.logwarn("Displacement estimator health check was not successful")
             raise Exception("Displacement Estimator health check failed")
 
-    def displacement_message_callback(self, msg: object) -> list[np.ndarray]:
+    def displacement_message_callback(self, msg: object) -> List[np.ndarray]:
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
             rospy.logwarn("Incorrect type of message in displacement estimator" +
                           str(type(msg)) + " vs " + str(self.supported_message_type))
@@ -31,7 +33,7 @@ class DisplacementEstimator(ABC):
         return self._displacement_message_callback(msg)
 
     @abstractmethod
-    def _displacement_message_callback(self, msg: object) -> list[np.ndarray]:
+    def _displacement_message_callback(self, msg: object) -> List[np.ndarray]:
         """
         returns list of histograms (displacement probabilities) -> there could be one histogram or multiple
         """
@@ -104,6 +106,7 @@ class AbsoluteDistanceEstimator(ABC):
     @abstractmethod
     def _abs_dist_message_callback(self, msg: object) -> float:
         """
+        increment the absolute distance self._distance in here
         returns floats -> distance absolute value
         """
         raise NotImplementedError
@@ -125,7 +128,7 @@ class ProbabilityDistanceEstimator(ABC):
             rospy.logwarn("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
 
-    def prob_dist_message_callback(self, msg: object) -> list[float]:
+    def prob_dist_message_callback(self, msg: object) -> List[float]:
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
             rospy.logwarn("Incorrect type of message in probabilistic distance estimator" +
                           str(type(msg)) + " vs " + str(self.supported_message_type))
@@ -133,7 +136,7 @@ class ProbabilityDistanceEstimator(ABC):
         return self._prob_dist_message_callback(msg)
 
     @abstractmethod
-    def _prob_dist_message_callback(self, msg: object) -> list[float]:
+    def _prob_dist_message_callback(self, msg: object) -> List[float]:
         """
         returns list of floats -> probability of traveled distance
         """

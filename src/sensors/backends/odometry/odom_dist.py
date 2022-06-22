@@ -1,4 +1,4 @@
-from src.sensors.base_classes import RelativeDistanceEstimator, AbsoluteDistanceEstimator
+from base_classes import RelativeDistanceEstimator, AbsoluteDistanceEstimator
 from nav_msgs.msg import Odometry
 import rospy
 
@@ -10,7 +10,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         self.supported_message_type = Odometry
         self.last_odom = None
 
-    def _message_callback(self, msg: Odometry):
+    def _abs_dist_message_callback(self, msg: Odometry):
         if self.last_odom is None:
             self.last_odom = msg
             return None
@@ -18,7 +18,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
         self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
-        return [self._distance]
+        return self._distance
 
     def health_check(self):
         return True
@@ -31,7 +31,7 @@ class OdometryRelative(RelativeDistanceEstimator):
         self.supported_message_type = Odometry
         self.last_odom = None
 
-    def _message_callback(self, msg: Odometry):
+    def _rel_dist_message_callback(self, msg: Odometry):
         if self.last_odom is None:
             self.last_odom = msg
             return None

@@ -2,7 +2,7 @@
 import rospy
 import controller
 from geometry_msgs.msg import Twist
-from bearnav2.msg import Alignment
+from bearnav2.msg import SensorsOutput
 from bearnav2.cfg import ControllerConfig
 from bearnav2.srv import SetClockGain, SetClockGainResponse
 from dynamic_reconfigure.server import Server

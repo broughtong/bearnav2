@@ -11,7 +11,7 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, Alignment
+from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput
 from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse
 from cv_bridge import CvBridge
 import numpy as np

@@ -1,11 +1,13 @@
+#!/usr/bin/env python
+
 import rospy
 from bearnav2.msg import SensorsOutput, SensorsInput, ImageList
 from std_msgs.msg import Float32
 from bearnav2.srv import LocalAlignment, LocalAlignmentResponse
 from nav_msgs.msg import Odometry
-from src.sensors.sensor_processing import BearnavClassic
-from src.sensors.backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
-from src.sensors.backends.siamese.siamese import SiameseCNN
+from sensor_processing import BearnavClassic
+from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
+from backends.siamese.siamese import SiameseCNN
 
 
 def start_subscribes(fusion_class):
@@ -45,9 +47,9 @@ if __name__ == '__main__':
 
     # TODO: set the topics to subscribe here
     rel_align_service = "blah_blah"
-    abs_align_topic = "blah_blah"
+    abs_align_topic = "sensors_input"
     rel_dist_topic = "blah_blah"
-    abs_dist_topic = "blah_blah"
+    abs_dist_topic = "/husky_velocity_controller/odom"
     prob_dist_topic = "blah_blah"
 
     # Start listening to topics, and initialize services

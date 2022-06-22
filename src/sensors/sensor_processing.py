@@ -30,3 +30,7 @@ class BearnavClassic(SensorFusion):
     def process_abs_distance(self, msg):
         self.distance = self.abs_dist_est.abs_dist_message_callback(msg)
         self.publish_data()
+
+    def process_prob_distance(self, msg):
+        rospy.logwarn("This function is not available for this fusion class")
+        raise Exception("Bearnav Classic does not support probability of distances")

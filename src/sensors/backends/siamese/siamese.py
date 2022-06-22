@@ -1,12 +1,13 @@
 import numpy as np
-from src.sensors.base_classes import ProbabilityDistanceEstimator, DisplacementEstimator
+from base_classes import ProbabilityDistanceEstimator, DisplacementEstimator
 import torch as t
-from siam_model import get_parametrized_model, load_model
+from backends.siamese.siam_model import get_parametrized_model, load_model
 from torchvision import transforms
 import rospy
 from cv_bridge import CvBridge
 import os
 from bearnav2.msg import SensorsInput
+from typing import List
 
 
 PAD = 32
@@ -35,12 +36,12 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator):
         self.distances_probs = None
         rospy.logwarn("Siamese model sucessfully initialized!")
 
-    def _displacement_message_callback(self, msg: object) -> list[np.ndarray]:
+    def _displacement_message_callback(self, msg: object) -> List[np.ndarray]:
         self.alignment_processing = True
         self.process_msg(msg)
         return self.histograms
 
-    def _prob_dist_message_callback(self, msg: object) -> list[float]:
+    def _prob_dist_message_callback(self, msg: object) -> List[float]:
         if not self.alignment_processing:
             self.process_msg(msg)
         return self.distances_probs
