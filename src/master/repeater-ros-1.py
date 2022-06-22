@@ -11,10 +11,40 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput
+from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList
 from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse
 from cv_bridge import CvBridge
 import numpy as np
+
+
+BR = CvBridge()
+
+
+def load_map(mappath, images, distances, trans_hists, nn_service):
+    tmp = []
+    for file in list(os.listdir(mappath)):
+        if file.endswith(".jpg"):
+            tmp.append(file[:-4])
+    rospy.logwarn(str(len(tmp)) + " images found in the map")
+    tmp.sort(key=float)
+    for idx, dist in enumerate(tmp):
+        distances.append(float(dist))
+        images.append(BR.cv2_to_imgmsg(cv2.imread(os.path.join(mappath, dist + ".jpg"))))
+        """
+        # this crazy part is for estimating the transitions
+        if len(images) >= 2 and nn_service is not None:
+            msg1 = ImageList([images[-2]])
+            msg2 = ImageList([images[-1]])
+            try:
+                resp1 = nn_service(msg1, msg2)
+                trans_hists.append(numpy_softmax(resp1.histograms[0].data))
+                rospy.logwarn("transition between images is " + str(np.argmax(trans_hists[-1]) - np.size(trans_hists[-1])//2))
+            except rospy.ServiceException as e:
+                rospy.logwarn("Service call failed: %s" % e)
+        """
+        rospy.loginfo("Loaded map image: " + str(dist) + str(".jpg"))
+    rospy.logwarn("Whole map sucessfully loaded")
+
 
 class ActionServer():
 
@@ -31,6 +61,11 @@ class ActionServer():
         self.fileList = []
         self.endPosition = None
         self.clockGain = 1.0
+        self.curr_dist = 0.0
+        self.map_images = []
+        self.map_distances = []
+        self.map_publish_span = 1
+
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -39,17 +74,14 @@ class ActionServer():
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("distance", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.pubSensorsInput, queue_size=1)
 
-        rospy.logdebug("Connecting to alignment module")
-        self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
-        self.al_1_pub = rospy.Publisher("alignment/inputCurrent", Image, queue_size=1)
-        self.al_2_pub = rospy.Publisher("alignment/inputMap", Image, queue_size=1)
-        self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
+        rospy.logdebug("Connecting to sensors module")
+        self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
@@ -64,58 +96,41 @@ class ActionServer():
         self.clockGain = req.gain 
         return SetClockGainResponse()
 
-    def imageCB(self, msg):
+    def pubSensorsInput(self, img_msg):
+        if len(self.map_images) > 0:
+            # rospy.logwarn(self.map_distances)
+            nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
+            lower_bound = max(0, nearest_map_idx - self.map_publish_span)
+            upper_bound = min(nearest_map_idx + self.map_publish_span + 1, len(self.map_distances))
+            map_imgs = ImageList(self.map_images[lower_bound:upper_bound])
+            distances = self.map_distances[lower_bound:upper_bound]
+            # transitions = self.map_transitions[lower_bound:upper_bound - 1]
+            live_imgs = ImageList([img_msg])
+            # rospy.logwarn(distances)
+            sns_in = SensorsInput()
+            sns_in.header = img_msg.header
+            sns_in.map_images = map_imgs
+            sns_in.live_images = live_imgs
+            sns_in.distances = distances
+            # sns_in.transitions = transitions
+            self.sensors_pub.publish(sns_in)
 
-        if self.isRepeating:
-            self.al_1_pub.publish(msg)
-            self.img = True
-            self.checkShutdown()
-
-    def getClosestImg(self, dist):
-        
-        if len(self.fileList) < 1:
-            rospy.logwarn("Not many map files")
-
-        closestFilename = None
-        closestDistance = 999999
-        dist = float(dist)
-        for filename in self.fileList:
-            ffilename = float(filename)
-            diff = abs(ffilename - dist)
-            #rospy.logwarn("diff %f" % (diff))
-            if diff < closestDistance:
-                #rospy.logwarn("Better fit")
-                closestDistance = diff
-                closestFilename = filename
-
-        fn = os.path.join(self.mapName, closestFilename + ".jpg")
-        rospy.logwarn("Opening file: %s dist %f" % (fn, dist))
-        img = cv2.imread(fn)
-        msg = self.br.cv2_to_imgmsg(img)
-        self.al_2_pub.publish(msg)
+            # DEBUGGING
+            # self.debug_map_img.publish(self.map_images[nearest_map_idx])
 
     def distanceCB(self, msg):
-        
         if self.isRepeating == False:
             return
         
         if self.img is None:
             rospy.logwarn("Warning: no image received")
 
-        dist = msg.data
-        self.getClosestImg(dist)
+        self.curr_dist = msg.distance
 
-        #if dist >= self.nextStep:
-        #    rospy.logdebug("Triggered wp")
-        #    self.nextStep += self.mapStep
-
-        if self.endPosition != 0 and dist >= self.endPosition:
+        if self.endPosition != 0 and self.curr_dist >= self.endPosition:
             self.isRepeating = False
 
         self.checkShutdown()
-
-    def alignCB(self, msg):
-        self.al_pub.publish(msg)
 
     def goalValid(self, goal):
         
@@ -131,7 +146,6 @@ class ActionServer():
         if not os.path.isfile(os.path.join(goal.mapName, "params")):
             rospy.logwarn("Can't find params")
             return False
-
         if goal.startPos < 0:
             rospy.logwarn("Invalid (negative) start position). Use zero to start at the beginning") 
             return False
@@ -152,7 +166,9 @@ class ActionServer():
             return
 
         self.parseParams(os.path.join(goal.mapName, "params"))
-        
+        map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances, None, None))
+        map_loader.start()
+
         #get file list
         allFiles = []
         for files in os.walk(goal.mapName):
@@ -251,15 +267,6 @@ class ActionServer():
         if self.bag is not None:
             self.bag.close()
 
-class ImageFetcherThread(threading.Thread):
-    def __init__(self, location, idQueue, imgLock):
-        threading.Thread.__init__(self)
-        self.location = location
-        self.idQueue = idQueue
-        self.imgLock = imgLock
-    def run(self):
-        threadLock.acquire()
-        threadLock.release()
 
 if __name__ == '__main__':
 

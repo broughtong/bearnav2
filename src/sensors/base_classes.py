@@ -153,7 +153,7 @@ class SensorFusion(ABC):
     """
 
     def __init__(self):
-        self.output_pub = rospy.Publisher("output", SensorsOutput, queue_size=1)
+        self.output_pub = rospy.Publisher("correction_cmd", SensorsOutput, queue_size=1)
         self.distance = 0
         self.alignment = 0
         self.distance_std = 0
