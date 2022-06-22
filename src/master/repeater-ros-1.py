@@ -66,7 +66,6 @@ class ActionServer():
         self.map_distances = []
         self.map_publish_span = 1
 
-
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
         rospy.Service('set_clock_gain', SetClockGain, self.setClockGain)
@@ -79,13 +78,14 @@ class ActionServer():
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
         self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.pubSensorsInput, queue_size=1)
+        rospy.logwarn(self.camera_topic)
 
         rospy.logdebug("Connecting to sensors module")
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
-        self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=0)
+        self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=1)
 
         rospy.logdebug("Starting repeater server")
         self.server = actionlib.SimpleActionServer("repeater", MapRepeaterAction, execute_cb=self.actionCB, auto_start=False)
@@ -168,17 +168,6 @@ class ActionServer():
         self.parseParams(os.path.join(goal.mapName, "params"))
         map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances, None, None))
         map_loader.start()
-
-        #get file list
-        allFiles = []
-        for files in os.walk(goal.mapName):
-            allFiles = files[2]
-            break
-        for filename in allFiles:
-            if ".jpg" in filename:
-                filename = ".".join(filename.split(".")[:-1])
-                self.fileList.append(filename)
-        rospy.logwarn("Found %i map files" % (len(self.fileList)))
 
         #set distance to zero
         rospy.logdebug("Resetting distnace")

@@ -84,7 +84,7 @@ class AbsoluteDistanceEstimator(ABC):
     def __init__(self):
         self.supported_message_type = None
         self._distance = None
-        self.set_distance = rospy.Service('set_distance', SetDist, self.set_distance)
+        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
         if not self.health_check():
             rospy.logwarn("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
@@ -124,16 +124,24 @@ class ProbabilityDistanceEstimator(ABC):
 
     def __init__(self):
         self.supported_message_type = None
+        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
         if not self.health_check():
             rospy.logwarn("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
 
     def prob_dist_message_callback(self, msg: object) -> List[float]:
+        if self._distance is None:
+            rospy.logwarn("If you want to use absolute distance sensor - you have to set the distance first!")
+            raise Exception("The distance must be set first")
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
             rospy.logwarn("Incorrect type of message in probabilistic distance estimator" +
                           str(type(msg)) + " vs " + str(self.supported_message_type))
             raise Exception("Wrong message type")
         return self._prob_dist_message_callback(msg)
+
+    def set_distance(self, msg: SetDist) -> SetDistResponse:
+        self._distance = msg.dist
+        return SetDistResponse()
 
     @abstractmethod
     def _prob_dist_message_callback(self, msg: object) -> List[float]:
