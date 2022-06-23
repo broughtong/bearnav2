@@ -19,7 +19,8 @@ class BearnavClassic(SensorFusion):
         raise Exception("Bearnav Classic does not support relative alignment")
 
     def process_abs_alignment(self, msg):
-        msg.map_images = [msg.map_images[len(msg.map_images) // 2]]     # choose only the middle image
+        # This is not ideal since we assume certain message type beforhand - however this class should be message agnostic!
+        msg.map_images.data = [msg.map_images.data[len(msg.map_images) // 2]]     # choose only the middle image
         histogram = self.abs_align_est.displacement_message_callback(msg)
         self.alignment = np.argmax(histogram) - np.size(histogram)//2
         self.publish_data()

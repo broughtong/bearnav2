@@ -1,5 +1,5 @@
 import numpy as np
-from base_classes import ProbabilityDistanceEstimator, DisplacementEstimator
+from base_classes import ProbabilityDistanceEstimator, DisplacementEstimator, AbsoluteDistanceEstimator
 import torch as t
 from backends.siamese.siam_model import get_parametrized_model, load_model
 from torchvision import transforms
@@ -8,6 +8,7 @@ from cv_bridge import CvBridge
 import os
 from bearnav2.msg import SensorsInput
 from typing import List
+from scipy import interpolate
 
 
 PAD = 32
@@ -17,7 +18,7 @@ RESIZE_H = 320
 RESIZE_W = 512
 
 
-class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator):
+class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDistanceEstimator):
 
     def __init__(self):
         super(SiameseCNN, self).__init__()
@@ -36,23 +37,33 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator):
         self.distances_probs = None
         rospy.logwarn("Siamese model sucessfully initialized!")
 
-    def _displacement_message_callback(self, msg: object) -> List[np.ndarray]:
+    def _displacement_message_callback(self, msg: SensorsInput) -> List[np.ndarray]:
         self.alignment_processing = True
         self.process_msg(msg)
         return self.histograms
 
-    def _prob_dist_message_callback(self, msg: object) -> List[float]:
+    def _prob_dist_message_callback(self, msg: SensorsInput) -> List[float]:
         if not self.alignment_processing:
             self.process_msg(msg)
         return self.distances_probs
+
+    def _abs_dist_message_callback(self, msg: SensorsInput) -> float:
+        if not len(msg.distances) > 0:
+            rospy.logwarn("You cannot assign absolute distance to ")
+            raise Exception("Absolute distant message callback for siamese network.")
+        if not self.alignment_processing:
+            self.process_msg(msg)
+        return self.distances[np.argmax(self.distances_probs)]
 
     def health_check(self) -> bool:
         return True
 
     def process_msg(self, msg):
-        histograms_numpy = self.forward(msg.map_images, msg.live_images)
-        self.distances_probs = np.max(histograms_numpy, axis=1)
-        self.histograms = list(histograms_numpy)
+        hist = self.forward(msg.map_images.data, msg.live_images.data)      # not sure about .data here
+        f = interpolate.interp1d(np.linspace(0, RESIZE_W, len(hist)), hist, kind="cubic")
+        interp_hist = f(np.arange(0, RESIZE_W))
+        self.distances_probs = np.max(interp_hist, axis=1)
+        self.histograms = list(interp_hist)
 
     def forward(self, map_images, live_images):
         """
