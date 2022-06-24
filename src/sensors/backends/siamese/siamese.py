@@ -63,7 +63,11 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDi
         f = interpolate.interp1d(np.linspace(0, RESIZE_W, len(hist[0])), hist, kind="cubic")
         interp_hist = f(np.arange(0, RESIZE_W))
         self.distances_probs = np.max(interp_hist, axis=1)
-        self.histograms = list(interp_hist)
+        ret = []
+        for hist in interp_hist:
+            zeros = np.zeros(len(interp_hist[0])//2)
+            ret.append(np.concatenate([zeros, hist, zeros]))    # siam can do only -0.5 to 0.5 img so extend both sides by sth
+        self.histograms = ret
 
     def forward(self, map_images, live_images):
         """

@@ -1,4 +1,2 @@
-float32 alignment
-float32 alignment_uncertainty
-float32 distance
-float32 distance_uncertainty
+float32 output
+float32 output_uncertainty

@@ -157,7 +157,8 @@ class SensorFusion(ABC):
     """
 
     def __init__(self):
-        self.output_pub = rospy.Publisher("correction_cmd", SensorsOutput, queue_size=1)
+        self.output_dist = rospy.Publisher("output_dist", SensorsOutput, queue_size=1)
+        self.output_align = rospy.Publisher("output_align", SensorsOutput, queue_size=1)
         self.distance = None
         self.alignment = None
         self.distance_std = None
@@ -170,22 +171,25 @@ class SensorFusion(ABC):
         self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
         self.set_alignment = rospy.Service('set_align', SetDist, self.set_alignment)
     
-    def publish_data(self):
+    def publish_dist(self):
+        out = SensorsOutput()
+        if self.distance is not None:
+            out.output = self.distance
+            out.output_uncertainty = self.distance_std
+        else:
+            out.output = 0.0
+            out.output_uncertainty = -1.0
+        self.output_dist.publish(out)
+
+    def publish_align(self):
         out = SensorsOutput()
         if self.alignment is not None:
-            out.alignment = self.alignment
-            out.alignment_uncertainty = self.alignment_std
+            out.output = self.alignment
+            out.output_uncertainty = self.alignment_std
         else:
-            out.alignment = 0.0
-            out.alignment_uncertainty = -1.0
-        if self.distance is not None:
-            out.distance = self.distance
-            out.distance_uncertainty = self.distance_std
-        else:
-            out.distance = 0.0
-            out.distance_uncertainty = -1.0
-        # rospy.logwarn(str(out))
-        self.output_pub.publish(out)
+            out.output = 0.0
+            out.output_uncertainty = -1.0
+        self.output_align.publish(out)
 
     def set_distance(self, msg: SetDist) -> SetDistResponse:
         self.distance = msg.dist
@@ -200,7 +204,8 @@ class SensorFusion(ABC):
         self.alignment = msg.dist
         self.alignment_std = 0.0
         return SetDistResponse()
-        
+
+    # this public enclosure ensures that topics are not subscribed until needed
     def process_rel_alignment(self, msg):
         if self.alignment is not None:
             self._process_rel_alignment(msg)

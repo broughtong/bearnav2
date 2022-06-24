@@ -57,7 +57,7 @@ class ActionServer:
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("correction_cmd", SensorsOutput, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
@@ -88,7 +88,7 @@ class ActionServer:
         if self.isMapping == False or self.img is None:
             return
 
-        dist = msg.distance
+        dist = msg.output
         self.lastDistance = dist
         if dist >= self.nextStep:
             if self.img is None:

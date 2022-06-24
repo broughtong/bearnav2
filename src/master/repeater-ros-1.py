@@ -75,7 +75,7 @@ class ActionServer():
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.align_reset_srv = rospy.ServiceProxy("set_align", SetDist)
         self.distance_reset_srv(0.0)
-        self.distance_sub = rospy.Subscriber("correction_cmd", SensorsOutput, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
@@ -128,7 +128,7 @@ class ActionServer():
         if self.img is None:
             rospy.logwarn("Warning: no image received")
 
-        self.curr_dist = msg.distance
+        self.curr_dist = msg.output
 
         if self.endPosition != 0 and self.curr_dist >= self.endPosition:
             self.isRepeating = False

@@ -9,6 +9,7 @@ class Controller:
         self.useUncertainty = True
         self.turnGain = 0.0000000003 #turn 0.1 rad per each pixel of error
         self.velocityGain = 1 # 1 is same speed as thought map, less is slower more is faster
+
     def process(self, msg):
         correction = self.alignment * self.turnGain # angle = px * angle/pixel
         if self.useUncertainty:
@@ -28,6 +29,6 @@ class Controller:
         self.velocityGain = cfg['velocity_gain']
 
     def correction(self,msg):
-        self.alignment = msg.alignment #Px
+        self.alignment = msg.output #Px
         # self.uncertainty = msg.uncertainty
 
