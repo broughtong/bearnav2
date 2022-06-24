@@ -64,16 +64,18 @@ class ActionServer():
         self.curr_dist = 0.0
         self.map_images = []
         self.map_distances = []
-        self.map_publish_span = 1
+        self.map_publish_span = 0
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
+        rospy.wait_for_service("set_align")
         rospy.Service('set_clock_gain', SetClockGain, self.setClockGain)
 
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
-        self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("distance", SensorsOutput, self.distanceCB, queue_size=1)
+        self.align_reset_srv = rospy.ServiceProxy("set_align", SetDist)
+        self.distance_reset_srv(0.0)
+        self.distance_sub = rospy.Subscriber("correction_cmd", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
@@ -97,6 +99,7 @@ class ActionServer():
         return SetClockGainResponse()
 
     def pubSensorsInput(self, img_msg):
+        self.img = img_msg
         if len(self.map_images) > 0:
             # rospy.logwarn(self.map_distances)
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
@@ -157,6 +160,7 @@ class ActionServer():
     def actionCB(self, goal):
 
         rospy.loginfo("New goal received")
+
         
         if self.goalValid(goal) == False:
             rospy.logwarn("Ignoring invalid goal")
@@ -170,8 +174,9 @@ class ActionServer():
         map_loader.start()
 
         #set distance to zero
-        rospy.logdebug("Resetting distnace")
+        rospy.logdebug("Resetting distnace and alignment")
         self.distance_reset_srv(goal.startPos)
+        self.align_reset_srv(0.0)
         self.endPosition = goal.endPos
         self.nextStep = 0
 
@@ -187,6 +192,8 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
+
+        time.sleep(2)
         #replay bag
         rospy.logwarn("Starting")
         previousMessageTime = None

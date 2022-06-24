@@ -84,7 +84,6 @@ class AbsoluteDistanceEstimator(ABC):
     def __init__(self):
         self.supported_message_type = None
         self._distance = None
-        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
         if not self.health_check():
             rospy.logwarn("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
@@ -99,9 +98,8 @@ class AbsoluteDistanceEstimator(ABC):
             raise Exception("Wrong message type")
         return self._abs_dist_message_callback(msg)
 
-    def set_distance(self, msg: SetDist) -> SetDistResponse:
-        self._distance = msg.dist
-        return SetDistResponse()
+    def set_dist(self, dist):
+        self._distance = dist
 
     @abstractmethod
     def _abs_dist_message_callback(self, msg: object) -> float:
@@ -124,8 +122,7 @@ class ProbabilityDistanceEstimator(ABC):
 
     def __init__(self):
         self.supported_message_type = None
-        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
-        if not self.health_check():
+        if self.health_check():
             rospy.logwarn("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
 
@@ -139,9 +136,8 @@ class ProbabilityDistanceEstimator(ABC):
             raise Exception("Wrong message type")
         return self._prob_dist_message_callback(msg)
 
-    def set_distance(self, msg: SetDist) -> SetDistResponse:
-        self._distance = msg.dist
-        return SetDistResponse()
+    def set_dist(self, dist):
+        self._distance = dist
 
     @abstractmethod
     def _prob_dist_message_callback(self, msg: object) -> List[float]:
@@ -162,41 +158,86 @@ class SensorFusion(ABC):
 
     def __init__(self):
         self.output_pub = rospy.Publisher("correction_cmd", SensorsOutput, queue_size=1)
-        self.distance = 0
-        self.alignment = 0
-        self.distance_std = 0
-        self.alignment_std = 0
+        self.distance = None
+        self.alignment = None
+        self.distance_std = None
+        self.alignment_std = None
         self.abs_dist_est = None
         self.rel_dist_est = None
         self.prob_dist_est = None
         self.abs_align_est = None
         self.rel_align_est = None
-
+        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
+        self.set_alignment = rospy.Service('set_align', SetDist, self.set_alignment)
+    
     def publish_data(self):
         out = SensorsOutput()
-        out.alignment = self.alignment
-        out.alignment_uncertainty = self.alignment_std
-        out.distance = self.distance
-        out.distance_uncertainty = self.distance_std
+        if self.alignment is not None:
+            out.alignment = self.alignment
+            out.alignment_uncertainty = self.alignment_std
+        else:
+            out.alignment = 0.0
+            out.alignment_uncertainty = -1.0
+        if self.distance is not None:
+            out.distance = self.distance
+            out.distance_uncertainty = self.distance_std
+        else:
+            out.distance = 0.0
+            out.distance_uncertainty = -1.0
+        # rospy.logwarn(str(out))
         self.output_pub.publish(out)
 
-    @abstractmethod
+    def set_distance(self, msg: SetDist) -> SetDistResponse:
+        self.distance = msg.dist
+        self.distance_std = 0.0
+        if self.abs_dist_est is not None:
+            self.abs_dist_est.set_dist(self.distance)
+        if self.prob_dist_est is not None:
+            self.prob_dist_est.set_dist(self.distance)
+        return SetDistResponse()
+
+    def set_alignment(self, msg: SetDist) -> SetDistResponse:
+        self.alignment = msg.dist
+        self.alignment_std = 0.0
+        return SetDistResponse()
+        
     def process_rel_alignment(self, msg):
-        raise NotImplementedError
+        if self.alignment is not None:
+            self._process_rel_alignment(msg)
 
-    @abstractmethod
     def process_abs_alignment(self, msg):
-        raise NotImplementedError
+        if self.alignment is not None:
+            self._process_abs_alignment(msg)
 
-    @abstractmethod
     def process_rel_distance(self, msg):
-        raise NotImplementedError
+        if self.distance is not None:
+            self._process_rel_distance(msg)
 
-    @abstractmethod
     def process_abs_distance(self, msg):
+        if self.distance is not None:
+            self._process_abs_distance(msg)
+
+    def process_prob_distance(self, msg):
+        if self.distance is not None:
+            self._process_prob_distance(msg)
+
+    @abstractmethod
+    def _process_rel_alignment(self, msg):
         raise NotImplementedError
 
     @abstractmethod
-    def process_prob_distance(self, msg):
+    def _process_abs_alignment(self, msg):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _process_rel_distance(self, msg):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _process_abs_distance(self, msg):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _process_prob_distance(self, msg):
         raise NotImplementedError
 

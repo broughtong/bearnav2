@@ -18,6 +18,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
         self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+        self.last_odom = msg
         return self._distance
 
     def health_check(self):
@@ -38,6 +39,7 @@ class OdometryRelative(RelativeDistanceEstimator):
         dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
+        self.last_odom = msg
         return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
 
     def health_check(self):

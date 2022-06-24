@@ -60,7 +60,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDi
 
     def process_msg(self, msg):
         hist = self.forward(msg.map_images.data, msg.live_images.data)      # not sure about .data here
-        f = interpolate.interp1d(np.linspace(0, RESIZE_W, len(hist)), hist, kind="cubic")
+        f = interpolate.interp1d(np.linspace(0, RESIZE_W, len(hist[0])), hist, kind="cubic")
         interp_hist = f(np.arange(0, RESIZE_W))
         self.distances_probs = np.max(interp_hist, axis=1)
         self.histograms = list(interp_hist)

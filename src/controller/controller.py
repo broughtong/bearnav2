@@ -29,5 +29,5 @@ class Controller:
 
     def correction(self,msg):
         self.alignment = msg.alignment #Px
-        self.uncertainty = msg.uncertainty
+        # self.uncertainty = msg.uncertainty
 
