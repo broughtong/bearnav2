@@ -156,20 +156,28 @@ class SensorFusion(ABC):
     Abstract method for the sensor fusion!
     """
 
-    def __init__(self):
+    def __init__(self,
+                 abs_dist_est: AbsoluteDistanceEstimator = None,
+                 rel_dist_est: RelativeDistanceEstimator = None,
+                 prob_dist_est: ProbabilityDistanceEstimator = None,
+                 rel_align_est: DisplacementEstimator = None,
+                 abs_align_est: DisplacementEstimator = None):
+
         self.output_dist = rospy.Publisher("output_dist", SensorsOutput, queue_size=1)
         self.output_align = rospy.Publisher("output_align", SensorsOutput, queue_size=1)
+        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
+        self.set_alignment = rospy.Service('set_align', SetDist, self.set_alignment)
+
         self.distance = None
         self.alignment = None
         self.distance_std = None
         self.alignment_std = None
-        self.abs_dist_est = None
-        self.rel_dist_est = None
-        self.prob_dist_est = None
-        self.abs_align_est = None
-        self.rel_align_est = None
-        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
-        self.set_alignment = rospy.Service('set_align', SetDist, self.set_alignment)
+
+        self.abs_dist_est = abs_dist_est
+        self.rel_dist_est = rel_dist_est
+        self.prob_dist_est = prob_dist_est
+        self.abs_align_est = abs_align_est
+        self.rel_align_est = rel_align_est
     
     def publish_dist(self):
         out = SensorsOutput()
@@ -208,7 +216,8 @@ class SensorFusion(ABC):
     # this public enclosure ensures that topics are not subscribed until needed
     def process_rel_alignment(self, msg):
         if self.alignment is not None:
-            self._process_rel_alignment(msg)
+            # only this method return sth because it is used by a service!
+            return self._process_rel_alignment(msg)
 
     def process_abs_alignment(self, msg):
         if self.alignment is not None:

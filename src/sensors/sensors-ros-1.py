@@ -3,9 +3,9 @@
 import rospy
 from bearnav2.msg import SensorsOutput, SensorsInput, ImageList
 from std_msgs.msg import Float32
-from bearnav2.srv import LocalAlignment, LocalAlignmentResponse
+from bearnav2.srv import Alignment, AlignmentResponse
 from nav_msgs.msg import Odometry
-from sensor_processing import BearnavClassic
+from sensor_processing import BearnavClassic, PF2D
 from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
 
@@ -27,9 +27,8 @@ def start_subscribes(fusion_class):
 
 
 def start_services(fusion_class):
-    if fusion_class.rel_align_est is not None and len(rel_align_service) > 0:
-        # TODO: do this also with varying message (service) type - LocalAlignment is not universal
-        relative_image_service = rospy.Service(rel_align_service, LocalAlignment, fusion_class.process_rel_alignment)
+    if fusion_class.rel_align_est is not None and len(rel_align_service_name) > 0:
+        relative_image_service = rospy.Service(rel_align_service_name, Alignment, fusion_class.process_rel_alignment)
         return relative_image_service
     return None
 
@@ -40,13 +39,17 @@ if __name__ == '__main__':
 
     # Choose sensor method
     align_abs = SiameseCNN()
+    # TODO: implement align_rel using cross-corr
     dist_abs = OdometryAbsolute()
+    dist_rel = OdometryRelative()
 
     # Set here fusion method
-    fusion = BearnavClassic(align_abs, dist_abs)
+    # fusion = BearnavClassic(align_abs, dist_abs)
+    fusion = PF2D(500, 0.05, 0.5, 0.025, 0.3, 2, True,
+                  align_abs, align_abs, dist_rel)
 
     # TODO: set the topics to subscribe here
-    rel_align_service = "blah_blah"
+    rel_align_service_name = "local_alignment"
     abs_align_topic = "sensors_input"
     rel_dist_topic = "blah_blah"
     abs_dist_topic = "/husky_velocity_controller/odom"
