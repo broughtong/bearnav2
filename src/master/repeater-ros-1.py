@@ -12,12 +12,17 @@ from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList
-from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse
+from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment
 from cv_bridge import CvBridge
 import numpy as np
 
 
 BR = CvBridge()
+
+
+def numpy_softmax(arr):
+    tmp = np.exp(arr) / np.sum(np.exp(arr))
+    return tmp
 
 
 def load_map(mappath, images, distances, trans_hists, nn_service):
@@ -30,18 +35,19 @@ def load_map(mappath, images, distances, trans_hists, nn_service):
     for idx, dist in enumerate(tmp):
         distances.append(float(dist))
         images.append(BR.cv2_to_imgmsg(cv2.imread(os.path.join(mappath, dist + ".jpg"))))
-        """
         # this crazy part is for estimating the transitions
         if len(images) >= 2 and nn_service is not None:
             msg1 = ImageList([images[-2]])
             msg2 = ImageList([images[-1]])
+            srv_in = Alignment()
+            srv_in.map_images = msg1
+            srv_in.live_images = msg2
             try:
                 resp1 = nn_service(msg1, msg2)
                 trans_hists.append(numpy_softmax(resp1.histograms[0].data))
                 rospy.logwarn("transition between images is " + str(np.argmax(trans_hists[-1]) - np.size(trans_hists[-1])//2))
             except rospy.ServiceException as e:
                 rospy.logwarn("Service call failed: %s" % e)
-        """
         rospy.loginfo("Loaded map image: " + str(dist) + str(".jpg"))
     rospy.logwarn("Whole map sucessfully loaded")
 
@@ -65,6 +71,7 @@ class ActionServer():
         self.map_images = []
         self.map_distances = []
         self.map_publish_span = 0
+        self.map_transitions = None
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("set_dist")
@@ -72,10 +79,10 @@ class ActionServer():
         rospy.Service('set_clock_gain', SetClockGain, self.setClockGain)
 
         rospy.logdebug("Resetting distance node")
-        self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
-        self.align_reset_srv = rospy.ServiceProxy("set_align", SetDist)
+        self.distance_reset_srv = rospy.ServiceProxy("repeat/set_dist", SetDist)
+        self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
         self.distance_reset_srv(0.0)
-        self.distance_sub = rospy.Subscriber("output_dist", SensorsOutput, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
@@ -107,7 +114,10 @@ class ActionServer():
             upper_bound = min(nearest_map_idx + self.map_publish_span + 1, len(self.map_distances))
             map_imgs = ImageList(self.map_images[lower_bound:upper_bound])
             distances = self.map_distances[lower_bound:upper_bound]
-            # transitions = self.map_transitions[lower_bound:upper_bound - 1]
+            if len(self.map_transitions) > 0:
+                transitions = self.map_transitions[lower_bound:upper_bound - 1]
+            else:
+                transitions = []
             live_imgs = ImageList([img_msg])
             # rospy.logwarn(distances)
             sns_in = SensorsInput()
@@ -115,7 +125,7 @@ class ActionServer():
             sns_in.map_images = map_imgs
             sns_in.live_images = live_imgs
             sns_in.distances = distances
-            # sns_in.transitions = transitions
+            sns_in.transitions = transitions
             self.sensors_pub.publish(sns_in)
 
             # DEBUGGING
@@ -160,7 +170,6 @@ class ActionServer():
     def actionCB(self, goal):
 
         rospy.loginfo("New goal received")
-
         
         if self.goalValid(goal) == False:
             rospy.logwarn("Ignoring invalid goal")
@@ -170,7 +179,15 @@ class ActionServer():
             return
 
         self.parseParams(os.path.join(goal.mapName, "params"))
-        map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances, None, None))
+
+        try:
+            nn_service = rospy.ServiceProxy("repeat/local_alignment", SetDist)
+        except:
+            rospy.logwarn("Local alignment service not available")
+            nn_service = None
+
+        map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances,
+                                                             self.map_transitions, nn_service))
         map_loader.start()
 
         #set distance to zero
@@ -191,7 +208,6 @@ class ActionServer():
                 topicType = self.bag.get_type_and_topic_info()[1][topic][0]
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
-
 
         time.sleep(2)
         #replay bag

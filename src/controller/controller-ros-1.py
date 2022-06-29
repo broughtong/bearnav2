@@ -34,6 +34,7 @@ def callbackReconfigure(config,level):
         
     return config
 
+
 if __name__ == "__main__":
     rospy.init_node("controller")
     rospy.wait_for_service('set_clock_gain')
@@ -41,6 +42,6 @@ if __name__ == "__main__":
     cmd_vel_topic = rospy.get_param("~cmd_vel_topic")
     pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=0)
     rospy.Subscriber("map_vel", Twist, callbackVel)
-    rospy.Subscriber("output_align", SensorsOutput, callbackCorr)
+    rospy.Subscriber("repeat/output_align", SensorsOutput, callbackCorr)
     srv = Server(ControllerConfig, callbackReconfigure)
     rospy.spin()

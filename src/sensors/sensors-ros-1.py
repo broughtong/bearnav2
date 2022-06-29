@@ -8,9 +8,12 @@ from nav_msgs.msg import Odometry
 from sensor_processing import BearnavClassic, PF2D
 from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
+from backends.crosscorrelation.crosscorr import CrossCorrelation
 
 
-def start_subscribes(fusion_class):
+def start_subscribes(fusion_class,
+                     abs_align_topic, abs_dist_topic, rel_dist_topic, prob_dist_topic,
+                     rel_align_service_name):
     # subscribers for images and other topics used for alignment and distance estimation
     if fusion_class.abs_align_est is not None and len(abs_align_topic) > 0:
         rospy.Subscriber(abs_align_topic, fusion_class.abs_align_est.supported_message_type,
@@ -24,9 +27,7 @@ def start_subscribes(fusion_class):
     if fusion_class.prob_dist_est is not None and len(prob_dist_topic) > 0:
         rospy.Subscriber(prob_dist_topic, fusion_class.prob_dist_est.supported_message_type,
                          fusion_class.process_prob_distance, queue_size=1)
-
-
-def start_services(fusion_class):
+    # service for rel alignment
     if fusion_class.rel_align_est is not None and len(rel_align_service_name) > 0:
         relative_image_service = rospy.Service(rel_align_service_name, Alignment, fusion_class.process_rel_alignment)
         return relative_image_service
@@ -39,24 +40,22 @@ if __name__ == '__main__':
 
     # Choose sensor method
     align_abs = SiameseCNN()
-    # TODO: implement align_rel using cross-corr
+    align_rel = CrossCorrelation()
     dist_abs = OdometryAbsolute()
     dist_rel = OdometryRelative()
 
     # Set here fusion method
-    # fusion = BearnavClassic(align_abs, dist_abs)
-    fusion = PF2D(500, 0.05, 0.5, 0.025, 0.3, 2, True,
-                  align_abs, align_abs, dist_rel)
+    teach_fusion = BearnavClassic("teach", align_abs, dist_abs)
+    repeat_fusion = PF2D("repeat", 500, 0.05, 0.5, 0.025, 0.3, 2, True,
+                         align_abs, align_rel, dist_rel)
 
-    # TODO: set the topics to subscribe here
-    rel_align_service_name = "local_alignment"
-    abs_align_topic = "sensors_input"
-    rel_dist_topic = "blah_blah"
-    abs_dist_topic = "/husky_velocity_controller/odom"
-    prob_dist_topic = "blah_blah"
-
-    # Start listening to topics, and initialize services
-    start_subscribes(fusion)
-    service_handle = start_services(fusion)
+    # Start listening to topics and service for teacher (mapmaker)
+    teach_handler = start_subscribes(teach_fusion,
+                                     "", "/husky_velocity_controller/odom", "", "",
+                                     "")
+    # Start listening to topics and service for repeater
+    repeat_handler = start_subscribes(repeat_fusion,
+                                      "sensors_input", "", "/husky_velocity_controller/odom", "",
+                                      "local_alignment")
 
     rospy.spin()

@@ -157,16 +157,21 @@ class SensorFusion(ABC):
     """
 
     def __init__(self,
+                 type_prefix: str = "repeat",
                  abs_dist_est: AbsoluteDistanceEstimator = None,
                  rel_dist_est: RelativeDistanceEstimator = None,
                  prob_dist_est: ProbabilityDistanceEstimator = None,
                  rel_align_est: DisplacementEstimator = None,
                  abs_align_est: DisplacementEstimator = None):
 
-        self.output_dist = rospy.Publisher("output_dist", SensorsOutput, queue_size=1)
-        self.output_align = rospy.Publisher("output_align", SensorsOutput, queue_size=1)
-        self.set_distance = rospy.Service('set_dist', SetDist, self.set_distance)
-        self.set_alignment = rospy.Service('set_align', SetDist, self.set_alignment)
+        if type_prefix not in ["teach", "repeat"]:
+            rospy.logwarn("Fusion method must be created for teach or repeat phase")
+            raise Exception("Not properly initialized fusion method")
+
+        self.output_dist = rospy.Publisher(type_prefix + "/output_dist", SensorsOutput, queue_size=1)
+        self.output_align = rospy.Publisher(type_prefix + "/output_align", SensorsOutput, queue_size=1)
+        self.set_distance = rospy.Service(type_prefix + "/set_dist", SetDist, self.set_distance)
+        self.set_alignment = rospy.Service(type_prefix + "/set_align", SetDist, self.set_alignment)
 
         self.distance = None
         self.alignment = None

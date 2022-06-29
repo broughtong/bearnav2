@@ -12,8 +12,9 @@ Here should be placed all classes for fusion of sensor processing
 
 class BearnavClassic(SensorFusion):
 
-    def __init__(self, abs_align_est: DisplacementEstimator, abs_dist_est: AbsoluteDistanceEstimator):
-        super().__init__(abs_align_est=abs_align_est, abs_dist_est=abs_dist_est)
+    def __init__(self, type_prefix: str,
+                 abs_align_est: DisplacementEstimator, abs_dist_est: AbsoluteDistanceEstimator):
+        super().__init__(type_prefix, abs_align_est=abs_align_est, abs_dist_est=abs_dist_est)
 
     def _process_rel_alignment(self, msg):
         rospy.logwarn("This function is not available for this fusion class")
@@ -44,11 +45,12 @@ class PF2D(SensorFusion):
 
     # TODO: everything here must be changed from pixelwise to relative image width
 
-    def __init__(self, particles_num: int, odom_error: float, odom_init_std: float,
+    def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
                  align_error: float, align_init_std: float, particles_frac: int, debug: bool,
                  abs_align_est: DisplacementEstimator, rel_align_est: DisplacementEstimator,
                  rel_dist_est: RelativeDistanceEstimator):
-        super(PF2D, self).__init__(abs_align_est=abs_align_est, rel_align_est=rel_align_est, rel_dist_est=rel_dist_est)
+        super(PF2D, self).__init__(type_prefix, abs_align_est=abs_align_est,
+                                   rel_align_est=rel_align_est, rel_dist_est=rel_dist_est)
 
         self.odom_error = odom_error
         self.align_error = align_error
@@ -90,7 +92,7 @@ class PF2D(SensorFusion):
         dists = np.array(msg.map_distances)
         traveled = self.traveled_dist
 
-        # sensor step --------------------------------------------------------------------
+        # sensor step -------------------------------------------------------------------------------
         # interpolate
         hist_width = np.shape(hists)[1]
         xs, ys = np.meshgrid(dists, np.linspace(-255, 255, hist_width))
@@ -138,26 +140,33 @@ class PF2D(SensorFusion):
             rolls = np.random.rand(self.particles.shape[1])
             indices = self._first_nonzero(np.matrix(trans_cumsum_per_particle) >= np.transpose(np.matrix(rolls)), 1)
             trans_diff = np.array(((indices - hist_width//2) * 8) * frac_per_particle)
-            particle_shifts = np.concatenate((np.ones(trans_diff.shape) * traveled, curr_img_diff - trans_diff), axis=1)
-            moved_particles = np.transpose(self.particles) + particle_shifts + \
+            # particles are shifted in odometry processing - thus np.zeros
+            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), curr_img_diff - trans_diff), axis=1)
+            moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
                                                scale=(self.odom_error * traveled, self.align_error),
                                                size=(self.particles.shape[1], 2))
             out.append(moved_particles)
         self.particles = np.concatenate(out).transpose()
 
-        # rospy.logwarn(np.array((dist_diff, hist_diff)))
-        particles_out = self.particles.flatten()
-        self.particles_pub.publish(particles_out)
-        rospy.logwarn("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])) + " vs raw odom: " + str(self.raw_odom))
-        rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transition: " + str(np.mean(trans_diff)))
         self.last_image = msg.live_images
+        self._get_coords()
+        self.publish_align()
+
+        # rospy.logwarn(np.array((dist_diff, hist_diff)))
+        if self.debug:
+            particles_out = self.particles.flatten()
+            self.particles_pub.publish(particles_out)
+            rospy.logwarn("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])) + " vs raw odom: " + str(self.raw_odom))
+            rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transition: " + str(np.mean(trans_diff)))
 
     def _process_rel_distance(self, msg):
         # only increment the distance
         dist = self.rel_dist_est.rel_dist_message_callback(msg)
         self.traveled_dist += dist
         self.particles[0] += dist
+        self._get_coords()
+        self.publish_dist()
 
     def _process_abs_distance(self, msg):
         rospy.logwarn("This function is not available for this fusion class")
@@ -174,3 +183,11 @@ class PF2D(SensorFusion):
     def _first_nonzero(self, arr, axis, invalid_val=-1):
         mask = arr != 0
         return np.array(np.where(mask.any(axis=axis), mask.argmax(axis=axis), invalid_val))
+
+    def _get_coords(self):
+        coords = np.mean(self.particles, axis=1)
+        stds = np.std(self.particles, axis=1)
+        self.distance = coords[0]
+        self.alignment = coords[1]
+        self.distance_std = stds[0]
+        self.alignment_std = stds[1]

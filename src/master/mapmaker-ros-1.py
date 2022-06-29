@@ -55,9 +55,9 @@ class ActionServer:
         rospy.loginfo("Starting...")
 
         rospy.logdebug("Resetting distance node")
-        self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
+        self.distance_reset_srv = rospy.ServiceProxy("teach/set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("output_dist", SensorsOutput, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
