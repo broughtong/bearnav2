@@ -13,8 +13,8 @@ from scipy import interpolate
 
 PAD = 32
 NEWTORK_DIVISION = 8.0
-RESIZE_H = 320 // NEWTORK_DIVISION
-RESIZE_W = 512 // NEWTORK_DIVISION
+RESIZE_H = int(320 // NEWTORK_DIVISION)
+RESIZE_W = int(512 // NEWTORK_DIVISION)
 
 
 class CrossCorrelation(DisplacementEstimator):
@@ -30,7 +30,7 @@ class CrossCorrelation(DisplacementEstimator):
         self.alignment_processing = False
         self.histograms = None
         self.distances_probs = None
-        rospy.logwarn("Siamese model sucessfully initialized!")
+        rospy.logwarn("Cross correlation displacement estimator sucessfully initialized!")
 
     def _displacement_message_callback(self, msg: SensorsInput) -> List[np.ndarray]:
         self.alignment_processing = True

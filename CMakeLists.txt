@@ -69,7 +69,7 @@ add_message_files(
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
-   LocalAlignment.srv
+   Alignment.srv
    SetDist.srv
    SetClockGain.srv
  )

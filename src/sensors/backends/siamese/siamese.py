@@ -35,7 +35,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDi
         self.alignment_processing = False
         self.histograms = None
         self.distances_probs = None
-        rospy.logwarn("Siamese model sucessfully initialized!")
+        rospy.logwarn("Siamese-NN displacement/distance estimator successfully initialized!")
 
     def _displacement_message_callback(self, msg: SensorsInput) -> List[np.ndarray]:
         self.alignment_processing = True

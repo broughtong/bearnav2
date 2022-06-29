@@ -9,6 +9,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         super(OdometryAbsolute, self).__init__()
         self.supported_message_type = Odometry
         self.last_odom = None
+        rospy.logwarn("Odometry absolute distance estimator successfully initialized!")
 
     def _abs_dist_message_callback(self, msg: Odometry):
         if self.last_odom is None:
@@ -31,6 +32,7 @@ class OdometryRelative(RelativeDistanceEstimator):
         super(OdometryRelative, self).__init__()
         self.supported_message_type = Odometry
         self.last_odom = None
+        rospy.logwarn("Odometry relative distance estimator successfully initialized!")
 
     def _rel_dist_message_callback(self, msg: Odometry):
         if self.last_odom is None:
