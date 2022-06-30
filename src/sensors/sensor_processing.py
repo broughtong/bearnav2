@@ -80,7 +80,7 @@ class PF2D(SensorFusion):
         return ret
 
     def _process_rel_alignment(self, msg):
-        histogram = self.rel_align_est.displacement_message_callback(msg)
+        histogram = self.rel_align_est.displacement_message_callback(msg.input)
         out = AlignmentResponse()
         out.histograms = histogram
         return out
@@ -106,7 +106,8 @@ class PF2D(SensorFusion):
         # get probabilites of particles
         particle_prob = self._numpy_softmax(particle_prob)
         # choose best candidates and reduce the number of particles
-        part_indices = np.arange(self.particles_num)
+        part_indices = np.arange(np.shape(self.particles)[1])
+        # rospy.logwarn(str(np.shape(particle_prob)) + "," + str(np.shape(part_indices)))
         chosen_indices = np.random.choice(part_indices, int(self.particles_num/self.particles_frac),
                                           p=particle_prob/np.sum(particle_prob))
         self.particles = self.particles[:, chosen_indices]
@@ -163,10 +164,11 @@ class PF2D(SensorFusion):
     def _process_rel_distance(self, msg):
         # only increment the distance
         dist = self.rel_dist_est.rel_dist_message_callback(msg)
-        self.traveled_dist += dist
-        self.particles[0] += dist
-        self._get_coords()
-        self.publish_dist()
+        if dist is not None:
+            self.traveled_dist += dist
+            self.particles[0] += dist
+            self._get_coords()
+            self.publish_dist()
 
     def _process_abs_distance(self, msg):
         rospy.logwarn("This function is not available for this fusion class")

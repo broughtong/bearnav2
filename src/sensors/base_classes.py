@@ -167,6 +167,7 @@ class SensorFusion(ABC):
         if type_prefix not in ["teach", "repeat"]:
             rospy.logwarn("Fusion method must be created for teach or repeat phase")
             raise Exception("Not properly initialized fusion method")
+        self.type_prefix = type_prefix
 
         self.output_dist = rospy.Publisher(type_prefix + "/output_dist", SensorsOutput, queue_size=1)
         self.output_align = rospy.Publisher(type_prefix + "/output_align", SensorsOutput, queue_size=1)

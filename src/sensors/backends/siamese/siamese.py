@@ -64,8 +64,9 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDi
         interp_hist = f(np.arange(0, RESIZE_W))
         self.distances_probs = np.max(interp_hist, axis=1)
         ret = []
+        # TODO: here is problem with dimensions!
         for hist in interp_hist:
-            zeros = np.zeros(len(interp_hist[0])//2)
+            zeros = np.zeros(np.size(hist[0])//2)
             ret.append(np.concatenate([zeros, hist, zeros]))    # siam can do only -0.5 to 0.5 img so extend both sides by sth
         self.histograms = ret
 
@@ -76,7 +77,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDi
         """
         tensor1 = self.image_to_tensor(map_images)
         tensor2 = self.image_to_tensor(live_images)
-        rospy.logwarn("aligning " + str(tensor1.shape[0]) + " to " + str(tensor2.shape[0]) + " images")
+        rospy.logwarn("aligning using NN " + str(tensor1.shape[0]) + " to " + str(tensor2.shape[0]) + " images")
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             hists = self.model(tensor1, tensor2, padding=PAD).cpu().numpy()

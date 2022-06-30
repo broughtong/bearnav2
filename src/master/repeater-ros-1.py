@@ -37,14 +37,13 @@ def load_map(mappath, images, distances, trans_hists, nn_service):
         images.append(BR.cv2_to_imgmsg(cv2.imread(os.path.join(mappath, dist + ".jpg"))))
         # this crazy part is for estimating the transitions
         if len(images) >= 2 and nn_service is not None:
-            msg1 = ImageList([images[-2]])
-            msg2 = ImageList([images[-1]])
-            srv_in = Alignment()
-            srv_in.map_images = msg1
-            srv_in.live_images = msg2
+            srv_msg = SensorsInput()
+            srv_msg.map_images = ImageList([images[-2]])
+            srv_msg.live_images = ImageList([images[-1]])
             try:
-                resp1 = nn_service(msg1, msg2)
-                trans_hists.append(numpy_softmax(resp1.histograms[0].data))
+                resp1 = nn_service(srv_msg)
+                rospy.logwarn(resp1)
+                trans_hists.append(float(np.argmax(resp1[0]) - np.size(resp1[0])//2))
                 rospy.logwarn("transition between images is " + str(np.argmax(trans_hists[-1]) - np.size(trans_hists[-1])//2))
             except rospy.ServiceException as e:
                 rospy.logwarn("Service call failed: %s" % e)
@@ -70,18 +69,19 @@ class ActionServer():
         self.curr_dist = 0.0
         self.map_images = []
         self.map_distances = []
-        self.map_publish_span = 0
-        self.map_transitions = None
+        # TODO: this is very important parameter - think about it!
+        self.map_publish_span = 2
+        self.map_transitions = []
 
         rospy.logdebug("Waiting for services to become available...")
-        rospy.wait_for_service("set_dist")
-        rospy.wait_for_service("set_align")
+        rospy.wait_for_service("repeat/set_dist")
+        rospy.wait_for_service("repeat/set_align")
         rospy.Service('set_clock_gain', SetClockGain, self.setClockGain)
 
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("repeat/set_dist", SetDist)
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
-        self.distance_reset_srv(0.0)
+        # self.distance_reset_srv(0.0)
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
@@ -99,7 +99,8 @@ class ActionServer():
         rospy.logdebug("Starting repeater server")
         self.server = actionlib.SimpleActionServer("repeater", MapRepeaterAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
-        rospy.loginfo("Server started, awaiting goal")
+
+        rospy.logwarn("Repeater started, awaiting goal")
 
     def setClockGain(self, req):
         self.clockGain = req.gain 
@@ -124,8 +125,8 @@ class ActionServer():
             sns_in.header = img_msg.header
             sns_in.map_images = map_imgs
             sns_in.live_images = live_imgs
-            sns_in.distances = distances
-            sns_in.transitions = transitions
+            sns_in.map_distances = distances
+            sns_in.map_transitions = transitions
             self.sensors_pub.publish(sns_in)
 
             # DEBUGGING
@@ -181,7 +182,7 @@ class ActionServer():
         self.parseParams(os.path.join(goal.mapName, "params"))
 
         try:
-            nn_service = rospy.ServiceProxy("repeat/local_alignment", SetDist)
+            nn_service = rospy.ServiceProxy("repeat/local_alignment", Alignment)
         except:
             rospy.logwarn("Local alignment service not available")
             nn_service = None

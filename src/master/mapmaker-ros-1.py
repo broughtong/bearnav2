@@ -51,7 +51,7 @@ class ActionServer:
                 self.additionalTopicSubscribers.append(s)
     
         rospy.loginfo("Waiting for services to become available...")
-        rospy.wait_for_service("set_dist")
+        rospy.wait_for_service("teach/set_dist")
         rospy.loginfo("Starting...")
 
         rospy.logdebug("Resetting distance node")
@@ -70,7 +70,8 @@ class ActionServer:
         rospy.logdebug("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
-        rospy.loginfo("Server started, awaiting goal")
+
+        rospy.logwarn("Mapmaker started, awaiting goal")
 
     def miscCB(self, msg, args):
         if self.isMapping:

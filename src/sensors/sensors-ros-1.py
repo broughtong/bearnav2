@@ -29,7 +29,8 @@ def start_subscribes(fusion_class,
                          fusion_class.process_prob_distance, queue_size=1)
     # service for rel alignment
     if fusion_class.rel_align_est is not None and len(rel_align_service_name) > 0:
-        relative_image_service = rospy.Service(rel_align_service_name, Alignment, fusion_class.process_rel_alignment)
+        relative_image_service = rospy.Service(fusion_class.type_prefix + "/" + rel_align_service_name,
+                                               Alignment, fusion_class.process_rel_alignment)
         return relative_image_service
     return None
 
