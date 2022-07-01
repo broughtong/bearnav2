@@ -186,6 +186,9 @@ class SensorFusion(ABC):
         self.rel_align_est = rel_align_est
     
     def publish_dist(self):
+        """
+        publish distance as a float in meters
+        """
         out = SensorsOutput()
         if self.distance is not None:
             out.output = self.distance
@@ -196,6 +199,9 @@ class SensorFusion(ABC):
         self.output_dist.publish(out)
 
     def publish_align(self):
+        """
+        publish alignment as a float from -1.0 to 1.0
+        """
         out = SensorsOutput()
         if self.alignment is not None:
             out.output = self.alignment

@@ -42,9 +42,11 @@ def load_map(mappath, images, distances, trans_hists, nn_service):
             srv_msg.live_images = ImageList([images[-1]])
             try:
                 resp1 = nn_service(srv_msg)
-                rospy.logwarn(resp1)
-                trans_hists.append(float(np.argmax(resp1[0]) - np.size(resp1[0])//2))
-                rospy.logwarn("transition between images is " + str(np.argmax(trans_hists[-1]) - np.size(trans_hists[-1])//2))
+                # rospy.logwarn(resp1)
+                hist = resp1.histograms[0].data
+                half_size = np.size(hist)/2.0
+                trans_hists.append(float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size)  # normalize -1 to 1
+                rospy.logwarn(str(len(trans_hists)) + "th transition between images is " + str(trans_hists[-1]))
             except rospy.ServiceException as e:
                 rospy.logwarn("Service call failed: %s" % e)
         rospy.loginfo("Loaded map image: " + str(dist) + str(".jpg"))
@@ -204,13 +206,14 @@ class ActionServer():
     
         #create publishers
         additionalPublishers = {}
+        rospy.logwarn(self.savedOdomTopic)
         for topic, message, ts in self.bag.read_messages():
             if topic is not self.savedOdomTopic:
                 topicType = self.bag.get_type_and_topic_info()[1][topic][0]
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
-        time.sleep(2)
+        time.sleep(2)       # waiting till some map images are parsed
         #replay bag
         rospy.logwarn("Starting")
         previousMessageTime = None

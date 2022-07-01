@@ -33,7 +33,6 @@ class CrossCorrelation(DisplacementEstimator):
         rospy.logwarn("Cross correlation displacement estimator sucessfully initialized!")
 
     def _displacement_message_callback(self, msg: SensorsInput) -> List[np.ndarray]:
-        rospy.logwarn("started processing")
         self.alignment_processing = True
         self.process_msg(msg)
         return self.histograms
@@ -43,11 +42,8 @@ class CrossCorrelation(DisplacementEstimator):
 
     def process_msg(self, msg):
         hist = self.forward(msg.map_images.data, msg.live_images.data)      # not sure about .data here
-        rospy.logwarn(np.shape(np.linspace(0, int(RESIZE_W * NEWTORK_DIVISION), len(hist[0]))))
-        rospy.logwarn(np.shape(hist[0]))
         f = interpolate.interp1d(np.linspace(0, int(RESIZE_W * NEWTORK_DIVISION), len(hist[0])), hist[0], kind="cubic")
         interp_hist = f(np.arange(0, int(RESIZE_W * NEWTORK_DIVISION)))
-        rospy.logwarn(np.shape(interp_hist))
         zeros = np.zeros(np.size(interp_hist)//2)
         ret = np.concatenate([zeros, interp_hist, zeros])    # siam can do only -0.5 to 0.5 img so extend both sides by sth
         self.histograms = [ret]
