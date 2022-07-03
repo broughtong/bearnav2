@@ -10,15 +10,18 @@ import roslib
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32
-from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput 
-from bearnav2.srv import SetDist
+from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList
+from bearnav2.srv import SetDist, Alignment
 from cv_bridge import CvBridge
+import numpy as np
 
 
 TARGET_WIDTH = 512
+br = CvBridge()
 
 
 def save_img(img, filename):
+    img = br.imgmsg_to_cv2(img)
     (h, w) = img.shape[:2]
     r = TARGET_WIDTH / float(w)
     dim = (TARGET_WIDTH, int(h * r))
@@ -31,14 +34,17 @@ class ActionServer:
     def __init__(self):
 
         #some vars
-        self.br = CvBridge()
         self.isMapping = False
-        self.img = None
+        self.img_msg = None
+        self.last_img_msg = None
         self.mapName = ""
         self.mapStep = 1.0
         self.nextStep = 0
         self.bag = None
         self.lastDistance = None
+        self.visual_turn = False
+        self.max_trans = 0.1
+        self.curr_trans = 0.0
 
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
@@ -71,6 +77,10 @@ class ActionServer:
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
         self.server.start()
 
+        if self.visual_turn:
+            rospy.wait_for_service("teach/local_alignment")
+            self.local_align = rospy.ServiceProxy("teach/local_alignment", Alignment)
+
         rospy.logwarn("Mapmaker started, awaiting goal")
 
     def miscCB(self, msg, args):
@@ -81,8 +91,29 @@ class ActionServer:
 
     def imageCB(self, msg):
 
-        self.img = self.br.imgmsg_to_cv2(msg)
+        self.img_msg = msg
+
+        if self.visual_turn and self.last_img_msg is not None:
+            srv_msg = SensorsInput()
+            srv_msg.map_images = ImageList([self.last_img_msg])
+            srv_msg.live_images = ImageList([self.img_msg])
+            try:
+                resp1 = self.local_align(srv_msg)
+                hist = resp1.histograms[0]
+                half_size = np.size(hist)/2.0
+                self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
+                if abs(self.curr_trans) > self.max_trans:
+                    rospy.logdebug("Hit waypoint turn")
+                    self.nextStep += self.mapStep
+                    filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
+                    save_img(self.img, filename)  # with resizing
+                    self.last_img_msg = self.img
+
+            except Exception as e:
+                rospy.logwarn("Service call failed: %s" % e)
+
         self.checkShutdown()
+
 
     def distanceCB(self, msg):
 
@@ -94,10 +125,11 @@ class ActionServer:
         if dist >= self.nextStep:
             if self.img is None:
                 rospy.logwarn("Warning: no image received!")
-            rospy.logdebug("Hit waypoint")
+            rospy.logdebug("Hit waypoint distance")
             self.nextStep += self.mapStep
-            filename = os.path.join(self.mapName, str(dist) + ".jpg")
+            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
             save_img(self.img, filename)  # with resizing
+            self.last_img_msg = self.img
             # cv2.imwrite(filename, self.img)
             rospy.logwarn("Image saved %s" % (filename))
 
