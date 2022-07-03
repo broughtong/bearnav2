@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     # Set here fusion method
     teach_fusion = BearnavClassic("teach", align_abs, dist_abs)
-    repeat_fusion = PF2D("repeat", 500, 0.05, 0.5, 0.01, 0.3, 2, True,
+    repeat_fusion = PF2D("repeat", 500, 0.05, 0.5, 0.03, 0.3, 2, True,
                          align_abs, align_rel, dist_rel)
 
     # Start listening to topics and service for teacher (mapmaker)
