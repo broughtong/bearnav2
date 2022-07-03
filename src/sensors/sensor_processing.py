@@ -92,10 +92,14 @@ class PF2D(SensorFusion):
         hists = np.array(self.abs_align_est.displacement_message_callback(msg))
         trans = np.array(msg.map_transitions)
         dists = np.array(msg.map_distances)
-        traveled = min(self.traveled_dist, 0.025)   # this is when odometry is slower than camera
-        if len(hists) < 2 or len(trans) != len(hists) - 1 or len(dists) != len(hists):
+        traveled = self.traveled_dist  # this is when odometry is slower than camera
+        if len(hists) < 2 or len(trans) != len(hists) - 1 or len(dists) != len(hists) or len(trans) == 0:
             rospy.logwarn("Invalid input sizes for particle filter!")
-            raise Exception("Invalid input to particle filter!")
+            return
+
+        if traveled == 0.0:
+            rospy.logwarn("Odometry is significantly slower than camera! Dropping input!")
+            return
 
         # sensor step -------------------------------------------------------------------------------
         # interpolate
@@ -136,15 +140,13 @@ class PF2D(SensorFusion):
         # generate new particles
         out = []
         trans_diff = None
-        rospy.logwarn(traveled)
-        rospy.logwarn(traveled_fracs)
         for _ in range(self.particles_frac):
             # rolls = np.random.rand(self.particles.shape[1])
             # indices = self._first_nonzero(np.matrix(trans_cumsum_per_particle) >= np.transpose(np.matrix(rolls)), 1)
             trans_diff = np.array(trans_cumsum_per_particle * frac_per_particle)
 
             # particles are shifted in odometry processing - thus np.zeros
-            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), curr_img_diff + trans_diff), axis=1)
+            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), curr_img_diff - trans_diff), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
                                                scale=(self.odom_error * traveled, self.align_error),
@@ -163,7 +165,7 @@ class PF2D(SensorFusion):
             particles_out = self.particles.flatten()
             self.particles_pub.publish(particles_out)
             rospy.logwarn("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
-            rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transition: " + str(np.mean(trans_diff)))
+            rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transition: " + str(np.mean(curr_img_diff - trans_diff)))
 
     def _process_rel_distance(self, msg):
         # only increment the distance
