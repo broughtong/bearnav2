@@ -10,7 +10,7 @@ import roslib
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32
-from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList
+from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList, DistancedTwist
 from bearnav2.srv import SetDist, Alignment
 from cv_bridge import CvBridge
 import numpy as np
@@ -41,7 +41,7 @@ class ActionServer:
         self.mapStep = 1.0
         self.nextStep = 0
         self.bag = None
-        self.lastDistance = None
+        self.lastDistance = 0.0
         self.visual_turn = False
         self.max_trans = 0.1
         self.curr_trans = 0.0
@@ -78,8 +78,9 @@ class ActionServer:
         self.server.start()
 
         if self.visual_turn:
-            rospy.wait_for_service("teach/local_alignment")
-            self.local_align = rospy.ServiceProxy("teach/local_alignment", Alignment)
+            rospy.wait_for_service("repeat/local_alignment")
+            self.local_align = rospy.ServiceProxy("repeat/local_alignment", Alignment)
+            rospy.logwarn("Local alignment service available for mapmaker")
 
         rospy.logwarn("Mapmaker started, awaiting goal")
 
@@ -138,7 +139,10 @@ class ActionServer:
     def joyCB(self, msg):
         if self.isMapping:
             rospy.logdebug("Adding joy")
-            self.bag.write(self.joy_topic, msg) 
+            save_msg = DistancedTwist()
+            save_msg.twist = msg
+            save_msg.distance = self.lastDistance
+            self.bag.write(self.joy_topic, save_msg)
 
     def actionCB(self, goal):
 
