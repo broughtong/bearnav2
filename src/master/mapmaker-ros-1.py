@@ -20,8 +20,8 @@ TARGET_WIDTH = 512
 br = CvBridge()
 
 
-def save_img(img, filename):
-    img = br.imgmsg_to_cv2(img)
+def save_img(img_msg, filename):
+    img = br.imgmsg_to_cv2(img_msg)
     (h, w) = img.shape[:2]
     r = TARGET_WIDTH / float(w)
     dim = (TARGET_WIDTH, int(h * r))
@@ -96,10 +96,14 @@ class ActionServer:
 
         if self.visual_turn and self.last_img_msg is not None and self.isMapping:
             srv_msg = SensorsInput()
+            self.last_img_msg.header = self.img_msg.header
             srv_msg.map_images = ImageList([self.last_img_msg])
             srv_msg.live_images = ImageList([self.img_msg])
             srv_msg.map_distances = []
             srv_msg.map_transitions = []
+            srv_msg.header = Header()
+            srv_msg.header.frame_id = self.img_msg.header.frame_id
+            srv_msg.header.stamp = self.img_msg.header.stamp
             # try:
             # TODO: WHY THE FUCK IS THIS NOT WORKING AT ALL???
             resp1 = self.local_align(srv_msg)
