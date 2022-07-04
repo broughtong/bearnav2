@@ -1,12 +1,12 @@
 import numpy as np
-from base_classes import ProbabilityDistanceEstimator, DisplacementEstimator, AbsoluteDistanceEstimator
+from base_classes import ProbabilityDistanceEstimator, DisplacementEstimator, AbsoluteDistanceEstimator, RepresentationsCreator
 import torch as t
 from backends.siamese.siam_model import get_parametrized_model, load_model
 from torchvision import transforms
 import rospy
 from cv_bridge import CvBridge
 import os
-from bearnav2.msg import SensorsInput
+from bearnav2.msg import SensorsInput, ImageList, Features
 from typing import List
 from scipy import interpolate
 
@@ -18,9 +18,11 @@ RESIZE_H = 320
 RESIZE_W = 512
 
 
-class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDistanceEstimator):
+class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
+                 AbsoluteDistanceEstimator, RepresentationsCreator):
 
     def __init__(self):
+        # TODO: all sensorinputs should be changed from ImageList to Features for major speedup
         super(SiameseCNN, self).__init__()
         self.supported_message_type = SensorsInput
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
@@ -54,6 +56,10 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator, AbsoluteDi
         if not self.alignment_processing:
             self.process_msg(msg)
         return self.distances[np.argmax(self.distances_probs)]
+
+    def _get_representations(self, msg: ImageList) -> Features:
+        # TODO: finish this for major bearnav speedup
+        raise NotImplementedError
 
     def health_check(self) -> bool:
         return True

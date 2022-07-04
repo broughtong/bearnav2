@@ -64,6 +64,8 @@ add_message_files(
     FeatureLocations.msg
     SensorsInput.msg
     SensorsOutput.msg
+    DistancedTwist.msg
+    Features.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -72,6 +74,7 @@ add_message_files(
    Alignment.srv
    SetDist.srv
    SetClockGain.srv
+   Representations.srv
  )
 
 ## Generate actions in the 'action' folder

@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from std_msgs.msg import Float32
-from sensor_msgs.msg import Image
-from bearnav2.msg import SensorsOutput
+from bearnav2.msg import SensorsOutput, ImageList, Features
 import rospy
-from bearnav2.srv import SetDist, SetDistResponse
+from bearnav2.srv import SetDist, SetDistResponse, Representations, RepresentationsResponse
 from typing import List
 
 
@@ -121,6 +120,7 @@ class ProbabilityDistanceEstimator(ABC):
     """
 
     def __init__(self):
+        self._distance = None
         self.supported_message_type = None
         if self.health_check():
             rospy.logwarn("Absolute distance estimator health check was not successful")
@@ -151,6 +151,25 @@ class ProbabilityDistanceEstimator(ABC):
         raise NotImplementedError
 
 
+class RepresentationCreator(ABC):
+
+    def __init__(self):
+        self.supported_message_type = None
+
+    def get_representations(self, inputs: Representations) -> RepresentationsResponse:
+        resp = RepresentationsResponse()
+        resp.features = self._get_representations(inputs.images)
+        return resp
+
+    @abstractmethod
+    def _get_representations(self, inputs: ImageList) -> Features:
+        raise NotImplementedError
+
+    @abstractmethod
+    def health_check(self) -> bool:
+        raise NotImplementedError
+
+
 class SensorFusion(ABC):
     """
     Abstract method for the sensor fusion!
@@ -162,7 +181,8 @@ class SensorFusion(ABC):
                  rel_dist_est: RelativeDistanceEstimator = None,
                  prob_dist_est: ProbabilityDistanceEstimator = None,
                  rel_align_est: DisplacementEstimator = None,
-                 abs_align_est: DisplacementEstimator = None):
+                 abs_align_est: DisplacementEstimator = None,
+                 repr_creator: RepresentationCreator = None):
 
         if type_prefix not in ["teach", "repeat"]:
             rospy.logwarn("Fusion method must be created for teach or repeat phase")
@@ -173,6 +193,9 @@ class SensorFusion(ABC):
         self.output_align = rospy.Publisher(type_prefix + "/output_align", SensorsOutput, queue_size=1)
         self.set_distance = rospy.Service(type_prefix + "/set_dist", SetDist, self.set_distance)
         self.set_alignment = rospy.Service(type_prefix + "/set_align", SetDist, self.set_alignment)
+        if repr_creator is not None:
+            self.repr_service = rospy.Service("representations_creator", Representations,
+                                              repr_creator.get_representations)
 
         self.distance = None
         self.alignment = None
@@ -184,6 +207,7 @@ class SensorFusion(ABC):
         self.prob_dist_est = prob_dist_est
         self.abs_align_est = abs_align_est
         self.rel_align_est = rel_align_est
+        self.repr_creator = repr_creator
     
     def publish_dist(self):
         """
@@ -266,4 +290,3 @@ class SensorFusion(ABC):
     @abstractmethod
     def _process_prob_distance(self, msg):
         raise NotImplementedError
-
