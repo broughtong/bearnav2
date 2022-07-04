@@ -1,2 +1,2 @@
-Twist twist
+geometry_msgs/Twist twist
 float32 distance

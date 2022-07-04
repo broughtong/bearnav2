@@ -9,7 +9,7 @@ import rosbag
 import roslib
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Header
 from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList, DistancedTwist
 from bearnav2.srv import SetDist, Alignment
 from cv_bridge import CvBridge
@@ -42,7 +42,7 @@ class ActionServer:
         self.nextStep = 0
         self.bag = None
         self.lastDistance = 0.0
-        self.visual_turn = False
+        self.visual_turn = True
         self.max_trans = 0.1
         self.curr_trans = 0.0
 
@@ -62,7 +62,7 @@ class ActionServer:
 
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("teach/set_dist", SetDist)
-        self.distance_reset_srv(0)
+        self.distance_reset_srv(0.0)
         self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
@@ -94,43 +94,44 @@ class ActionServer:
 
         self.img_msg = msg
 
-        if self.visual_turn and self.last_img_msg is not None:
+        if self.visual_turn and self.last_img_msg is not None and self.isMapping:
             srv_msg = SensorsInput()
             srv_msg.map_images = ImageList([self.last_img_msg])
             srv_msg.live_images = ImageList([self.img_msg])
-            try:
-                resp1 = self.local_align(srv_msg)
-                hist = resp1.histograms[0]
-                half_size = np.size(hist)/2.0
-                self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
-                if abs(self.curr_trans) > self.max_trans:
-                    rospy.logdebug("Hit waypoint turn")
-                    self.nextStep += self.mapStep
-                    filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
-                    save_img(self.img, filename)  # with resizing
-                    self.last_img_msg = self.img
-
-            except Exception as e:
-                rospy.logwarn("Service call failed: %s" % e)
+            srv_msg.map_distances = []
+            srv_msg.map_transitions = []
+            # try:
+            # TODO: WHY THE FUCK IS THIS NOT WORKING AT ALL???
+            resp1 = self.local_align(srv_msg)
+            hist = resp1.histograms[0].data
+            half_size = np.size(hist)/2.0
+            self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
+            if abs(self.curr_trans) > self.max_trans:
+                rospy.logdebug("Hit waypoint turn")
+                self.nextStep += self.lastDistance + self.mapStep
+                filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
+                save_img(self.img_msg, filename)  # with resizing
+                self.last_img_msg = self.img_msg
+            # except Exception as e:
+            #     rospy.logwarn("Service call failed: %s" % e)
 
         self.checkShutdown()
 
 
     def distanceCB(self, msg):
 
-        if self.isMapping == False or self.img is None:
+        if self.isMapping == False or self.img_msg is None:
             return
-
         dist = msg.output
         self.lastDistance = dist
         if dist >= self.nextStep:
-            if self.img is None:
+            if self.img_msg is None:
                 rospy.logwarn("Warning: no image received!")
             rospy.logdebug("Hit waypoint distance")
             self.nextStep += self.mapStep
             filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
-            save_img(self.img, filename)  # with resizing
-            self.last_img_msg = self.img
+            save_img(self.img_msg, filename)  # with resizing
+            self.last_img_msg = self.img_msg
             # cv2.imwrite(filename, self.img)
             rospy.logwarn("Image saved %s" % (filename))
 
@@ -146,7 +147,7 @@ class ActionServer:
 
     def actionCB(self, goal):
 
-        if self.img is None:
+        if self.img_msg is None:
             rospy.logerr("WARNING: no image coming through, ignoring")
             result = MapMakerResult()
             result.success = False
@@ -162,7 +163,8 @@ class ActionServer:
 
         if goal.start == True:
             self.isMapping = False
-            self.img = None
+            self.img_msg = None
+            self.last_img_msg = None
             try:
                 os.mkdir(goal.mapName)
                 with open(goal.mapName + "/params", "w") as f:
@@ -177,15 +179,17 @@ class ActionServer:
             rospy.loginfo("Starting mapping")
             self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "w")
             self.mapName = goal.mapName
-            self.nextStep = 0
+            self.nextStep = 0.0
             self.lastDistance = None
-            self.distance_reset_srv(0)
+            self.distance_reset_srv(0.0)
             self.isMapping = True
         else:
             rospy.logdebug("Creating final wp")
-            filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
-            cv2.imwrite(filename, self.img)
-            rospy.loginfo("Stopping Mapping")
+            # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
+            # cv2.imwrite(filename, self.img)
+            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
+            save_img(self.img_msg, filename)  # with resizing
+            rospy.logwarn("Stopping Mapping")
             time.sleep(2)
             self.isMapping = False
             self.bag.close()

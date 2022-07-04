@@ -94,6 +94,7 @@ add_action_files(
    std_msgs
    actionlib_msgs
    sensor_msgs
+   geometry_msgs
 )
 
 ################################################

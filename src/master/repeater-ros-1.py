@@ -29,9 +29,9 @@ def load_map(mappath, images, distances, trans_hists):
     tmp = []
     for file in list(os.listdir(mappath)):
         if file.endswith(".jpg"):
-            tmp.append(file[:-4].split("_"))
+            tmp.append(file[:-4].plit("_"))
     rospy.logwarn(str(len(tmp)) + " images found in the map")
-    tmp.sort(key=float)
+    tmp.sort(key=lambda x: float(x[0]))
     for idx, dist_turn in enumerate(tmp):
 
         distances.append(dist_turn[0])

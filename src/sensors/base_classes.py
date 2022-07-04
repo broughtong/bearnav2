@@ -151,7 +151,7 @@ class ProbabilityDistanceEstimator(ABC):
         raise NotImplementedError
 
 
-class RepresentationCreator(ABC):
+class RepresentationsCreator(ABC):
 
     def __init__(self):
         self.supported_message_type = None
@@ -182,7 +182,7 @@ class SensorFusion(ABC):
                  prob_dist_est: ProbabilityDistanceEstimator = None,
                  rel_align_est: DisplacementEstimator = None,
                  abs_align_est: DisplacementEstimator = None,
-                 repr_creator: RepresentationCreator = None):
+                 repr_creator: RepresentationsCreator = None):
 
         if type_prefix not in ["teach", "repeat"]:
             rospy.logwarn("Fusion method must be created for teach or repeat phase")
