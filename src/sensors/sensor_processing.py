@@ -103,6 +103,8 @@ class PF2D(SensorFusion):
 
         # sensor step -------------------------------------------------------------------------------
         # interpolate
+        self.particles[0] = np.clip(self.particles[0], dists[0], dists[-1])
+        self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)
         hist_width = np.shape(hists)[1]
         xs, ys = np.meshgrid(dists, np.linspace(-1.0, 1.0, hist_width))
         positions = np.vstack([xs.ravel(), ys.ravel()])

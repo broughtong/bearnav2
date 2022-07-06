@@ -65,7 +65,7 @@ class ActionServer():
         self.action_dists = None
         self.actions = []
         # TODO: this is very important parameter - think about it!
-        self.map_publish_span = 2
+        self.map_publish_span = 1
         self.map_transitions = []
 
         rospy.logdebug("Waiting for services to become available...")
@@ -102,6 +102,8 @@ class ActionServer():
 
     def pubSensorsInput(self, img_msg):
         self.img = img_msg
+        if not self.isRepeating:
+            return
         if len(self.map_images) > 0:
             # rospy.logwarn(self.map_distances)
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
@@ -136,7 +138,8 @@ class ActionServer():
 
         self.curr_dist = msg.output
 
-        if self.curr_dist >= self.map_distances[-1] or (self.endPosition != 0.0 and self.endPosition < self.curr_dist):
+        if self.curr_dist >= (self.map_distances[-1] - 0.05) or\
+                (self.endPosition != 0.0 and self.endPosition < self.curr_dist):
             rospy.logwarn("GOAL REACHED, STOPPING REPEATER")
             self.shutdown()
 
