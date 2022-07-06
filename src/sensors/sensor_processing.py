@@ -165,7 +165,8 @@ class PF2D(SensorFusion):
             particles_out = self.particles.flatten()
             self.particles_pub.publish(particles_out)
             rospy.logwarn("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
-            rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transition: " + str(np.mean(curr_img_diff - trans_diff)))
+            rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
+                          + " and " + str(np.mean(trans_diff)))
 
     def _process_rel_distance(self, msg):
         # only increment the distance

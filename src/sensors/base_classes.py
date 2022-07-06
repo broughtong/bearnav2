@@ -251,9 +251,7 @@ class SensorFusion(ABC):
 
     # this public enclosure ensures that topics are not subscribed until needed
     def process_rel_alignment(self, msg):
-        if self.alignment is not None:
-            # only this method return sth because it is used by a service!
-            return self._process_rel_alignment(msg)
+        return self._process_rel_alignment(msg)
 
     def process_abs_alignment(self, msg):
         if self.alignment is not None:
