@@ -205,9 +205,8 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
-        time.sleep(0.2)       # waiting till some map images are parsed
-
         self.parse_rosbag()
+        time.sleep(3)       # waiting till some map images are parsed
         self.isRepeating = True
         # kick into the robot at the beggining:
         self.play_closest_action()
