@@ -18,7 +18,7 @@ class DisplacementEstimator(ABC):
     Extend this to add new estimator, the main method which must be implemented is "_displacement_message_callback"
     """
 
-    def __init__(self):
+    def __init__(self, local_displacement: bool=False):
         self.supported_message_type = None  # this attrubute must be set
         if not self.health_check():
             rospy.logwarn("Displacement estimator health check was not successful")
@@ -155,14 +155,15 @@ class RepresentationsCreator(ABC):
 
     def __init__(self):
         self.supported_message_type = None
+        self.health_check()
 
-    def get_representations(self, inputs: Representations) -> RepresentationsResponse:
+    def to_representations(self, inputs: Representations) -> RepresentationsResponse:
         resp = RepresentationsResponse()
-        resp.features = self._get_representations(inputs.images)
+        resp.features = self._to_representation(inputs.images)
         return resp
 
     @abstractmethod
-    def _get_representations(self, inputs: ImageList) -> Features:
+    def _to_representation(self, inputs: object) -> Features:
         raise NotImplementedError
 
     @abstractmethod
@@ -193,9 +194,6 @@ class SensorFusion(ABC):
         self.output_align = rospy.Publisher(type_prefix + "/output_align", SensorsOutput, queue_size=1)
         self.set_distance = rospy.Service(type_prefix + "/set_dist", SetDist, self.set_distance)
         self.set_alignment = rospy.Service(type_prefix + "/set_align", SetDist, self.set_alignment)
-        if repr_creator is not None:
-            self.repr_service = rospy.Service("representations_creator", Representations,
-                                              repr_creator.get_representations)
 
         self.distance = None
         self.alignment = None
@@ -253,6 +251,9 @@ class SensorFusion(ABC):
     def process_rel_alignment(self, msg):
         return self._process_rel_alignment(msg)
 
+    def create_representations(self, msg):
+        return self._create_representations(msg)
+
     def process_abs_alignment(self, msg):
         if self.alignment is not None:
             self._process_abs_alignment(msg)
@@ -271,6 +272,10 @@ class SensorFusion(ABC):
 
     @abstractmethod
     def _process_rel_alignment(self, msg):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _create_representations(self, msg):
         raise NotImplementedError
 
     @abstractmethod
