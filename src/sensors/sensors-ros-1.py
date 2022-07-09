@@ -55,7 +55,7 @@ if __name__ == '__main__':
     #                                   "sensors_input", "/husky_velocity_controller/odom", "", "",
     #                                   "")
     # 2D Particle filter
-    repeat_fusion = PF2D("repeat", 500, 0.5, 1.0, 0.02, 0.3, 2, True,
+    repeat_fusion = PF2D("repeat", 500, 0.25, 1.0, 0.03, 0.3, 2, True,
                          align_abs, align_rel, dist_rel)
     repeat_handler = start_subscribes(repeat_fusion,
                                       "sensors_input", "", "/husky_velocity_controller/odom", "",

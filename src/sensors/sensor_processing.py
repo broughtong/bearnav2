@@ -151,8 +151,8 @@ class PF2D(SensorFusion):
                                              (self.particles[0], self.particles[1]),
                                              method="nearest")
         # get probabilites of particles
-        # particle_prob = self._numpy_softmax(particle_prob)
-        particle_prob = particle_prob/np.sum(particle_prob)
+        particle_prob = self._numpy_softmax(particle_prob)
+        # particle_prob = particle_prob/np.sum(particle_prob)
         # choose best candidates and reduce the number of particles
         part_indices = np.arange(np.shape(self.particles)[1])
         # rospy.logwarn(str(np.shape(particle_prob)) + "," + str(np.shape(part_indices)))
