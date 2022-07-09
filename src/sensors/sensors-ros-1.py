@@ -49,7 +49,7 @@ if __name__ == '__main__':
                                      "")
 
     # Set here fusion method for repeating phase ------------------------------------------
-    # Bearnav classic
+    # Bearnav classic - this method also needs publish span 0 in the repeater !!!
     # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs)
     # repeat_handler = start_subscribes(repeat_fusion,
     #                                   "sensors_input", "/husky_velocity_controller/odom", "", "",

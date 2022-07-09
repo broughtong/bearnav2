@@ -54,7 +54,7 @@ class VisualOnly(SensorFusion):
 
     def _process_abs_alignment(self, msg: SensorsInput):
         hists = np.array(self.abs_align_est.displacement_message_callback(msg))
-        hist = np.max(hists)
+        hist = np.max(hists, axis=0)
         half_size = np.size(hist) / 2.0
         self.alignment = float(np.argmax(hist) - (np.size(hist) // 2.0)) / half_size  # normalize -1 to 1
         self.publish_align()
@@ -70,9 +70,9 @@ class VisualOnly(SensorFusion):
     def _process_prob_distance(self, msg):
         dists = msg.map_distances
         probs = self.prob_dist_est.prob_dist_message_callback(msg)
-        coefs = np.polyfit(dists, probs, 2)
-        peak = -coefs[1]/(2*coefs[0])
-        self.distance = peak
+        # TODO:  this must be reworked some interpolation is better - more fancy :)
+        self.distance = dists[np.argmax(probs)]
+        rospy.logwarn("Predicted dist: " + str(self.distance) + " and alignment: " + str(self.alignment))
         self.publish_dist()
 
 
