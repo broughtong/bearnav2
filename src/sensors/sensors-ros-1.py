@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 
 import rospy
-from bearnav2.msg import SensorsOutput, SensorsInput, ImageList
-from std_msgs.msg import Float32
 from bearnav2.srv import Alignment, AlignmentResponse
-from nav_msgs.msg import Odometry
-from sensor_processing import BearnavClassic, PF2D
+from sensor_processing import BearnavClassic, PF2D, VisualOnly
 from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
 from backends.crosscorrelation.crosscorr import CrossCorrelation
@@ -45,18 +42,29 @@ if __name__ == '__main__':
     dist_abs = OdometryAbsolute()
     dist_rel = OdometryRelative()
 
-    # Set here fusion method
+    # Set here fusion method for teaching phase -------------------------------------------
     teach_fusion = BearnavClassic("teach", align_abs, dist_abs)
-    repeat_fusion = PF2D("repeat", 500, 0.1, 1.0, 0.03, 0.3, 2, True,
-                         align_abs, align_rel, dist_rel)
-
-    # Start listening to topics and service for teacher (mapmaker)
     teach_handler = start_subscribes(teach_fusion,
                                      "", "/husky_velocity_controller/odom", "", "",
                                      "")
-    # Start listening to topics and service for repeater
+
+    # Set here fusion method for repeating phase ------------------------------------------
+    # Bearnav classic
+    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs)
+    # repeat_handler = start_subscribes(repeat_fusion,
+    #                                   "sensors_input", "/husky_velocity_controller/odom", "", "",
+    #                                   "")
+    # 2D Particle filter
+    repeat_fusion = PF2D("repeat", 500, 0.5, 1.0, 0.02, 0.3, 2, True,
+                         align_abs, align_rel, dist_rel)
     repeat_handler = start_subscribes(repeat_fusion,
                                       "sensors_input", "", "/husky_velocity_controller/odom", "",
                                       "local_alignment")
+    # Visual Only
+    # repeat_fusion = VisualOnly("repeat", align_abs, align_abs)
+    # repeat_handler = start_subscribes(repeat_fusion,
+    #                                   "sensors_input", "", "", "sensors_input",
+    #                                   "")
+
 
     rospy.spin()

@@ -1,5 +1,6 @@
 import numpy as np
-from base_classes import DisplacementEstimator, RelativeDistanceEstimator, AbsoluteDistanceEstimator, SensorFusion
+from base_classes import DisplacementEstimator, RelativeDistanceEstimator, AbsoluteDistanceEstimator,\
+    SensorFusion, ProbabilityDistanceEstimator
 import rospy
 from bearnav2.srv import Alignment, AlignmentResponse, SetDist, SetDistResponse
 from bearnav2.msg import FloatList, SensorsInput, ImageList
@@ -41,9 +42,44 @@ class BearnavClassic(SensorFusion):
         raise Exception("Bearnav Classic does not support probability of distances")
 
 
+class VisualOnly(SensorFusion):
+
+    def __init__(self, type_prefix: str,
+                 abs_align_est: DisplacementEstimator, prob_dist_est: ProbabilityDistanceEstimator):
+        super().__init__(type_prefix, abs_align_est=abs_align_est, prob_dist_est=prob_dist_est)
+
+    def _process_rel_alignment(self, msg):
+        rospy.logwarn("This function is not available for this fusion class")
+        raise Exception("Visual only does not support relative alignment")
+
+    def _process_abs_alignment(self, msg: SensorsInput):
+        hists = np.array(self.abs_align_est.displacement_message_callback(msg))
+        hist = np.max(hists)
+        half_size = np.size(hist) / 2.0
+        self.alignment = float(np.argmax(hist) - (np.size(hist) // 2.0)) / half_size  # normalize -1 to 1
+        self.publish_align()
+
+    def _process_rel_distance(self, msg):
+        rospy.logwarn("This function is not available for this fusion class")
+        raise Exception("Visual only does not support relative distance")
+
+    def _process_abs_distance(self, msg):
+        rospy.logwarn("This function is not available for this fusion class")
+        raise Exception("Visual only does not support absolute distance")
+
+    def _process_prob_distance(self, msg):
+        dists = msg.map_distances
+        probs = self.prob_dist_est.prob_dist_message_callback(msg)
+        coefs = np.polyfit(dists, probs, 2)
+        peak = -coefs[1]/(2*coefs[0])
+        self.distance = peak
+        self.publish_dist()
+
+
+
+
 class PF2D(SensorFusion):
 
-    # TODO: everything here must be changed from pixelwise to relative image width
 
     def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
                  align_error: float, align_init_std: float, particles_frac: int, debug: bool,
@@ -115,7 +151,8 @@ class PF2D(SensorFusion):
                                              (self.particles[0], self.particles[1]),
                                              method="nearest")
         # get probabilites of particles
-        particle_prob = self._numpy_softmax(particle_prob)
+        # particle_prob = self._numpy_softmax(particle_prob)
+        particle_prob = particle_prob/np.sum(particle_prob)
         # choose best candidates and reduce the number of particles
         part_indices = np.arange(np.shape(self.particles)[1])
         # rospy.logwarn(str(np.shape(particle_prob)) + "," + str(np.shape(part_indices)))
