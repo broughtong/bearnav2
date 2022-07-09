@@ -45,6 +45,7 @@ class ActionServer:
         self.visual_turn = True
         self.max_trans = 0.1
         self.curr_trans = 0.0
+        self.last_saved_dist = None
 
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
@@ -107,7 +108,7 @@ class ActionServer:
                 hist = resp1.histograms[0].data
                 half_size = np.size(hist)/2.0
                 self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
-                if abs(self.curr_trans) > self.max_trans:
+                if abs(self.curr_trans) > self.max_trans and self.last_saved_dist != self.lastDistance:
                     rospy.logdebug("Hit waypoint turn")
                     self.nextStep = self.lastDistance + self.mapStep
                     filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
@@ -126,6 +127,7 @@ class ActionServer:
         dist = msg.output
         self.lastDistance = dist
         if dist >= self.nextStep:
+            self.last_saved_dist = dist
             if self.img_msg is None:
                 rospy.logwarn("Warning: no image received!")
             rospy.logdebug("Hit waypoint distance")
@@ -166,6 +168,7 @@ class ActionServer:
             self.isMapping = False
             self.img_msg = None
             self.last_img_msg = None
+            self.distance_reset_srv(0.0)
             try:
                 os.mkdir(goal.mapName)
                 with open(goal.mapName + "/params", "w") as f:
@@ -182,7 +185,6 @@ class ActionServer:
             self.mapName = goal.mapName
             self.nextStep = 0.0
             self.lastDistance = 0.0
-            self.distance_reset_srv(0.0)
             self.isMapping = True
         else:
             rospy.logdebug("Creating final wp")
