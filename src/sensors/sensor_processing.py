@@ -1,6 +1,6 @@
 import numpy as np
 from base_classes import DisplacementEstimator, RelativeDistanceEstimator, AbsoluteDistanceEstimator,\
-    SensorFusion, ProbabilityDistanceEstimator
+    SensorFusion, ProbabilityDistanceEstimator, RepresentationsCreator
 import rospy
 from bearnav2.srv import Alignment, AlignmentResponse, SetDist, SetDistResponse
 from bearnav2.msg import FloatList, SensorsInput, ImageList
@@ -14,8 +14,10 @@ Here should be placed all classes for fusion of sensor processing
 class BearnavClassic(SensorFusion):
 
     def __init__(self, type_prefix: str,
-                 abs_align_est: DisplacementEstimator, abs_dist_est: AbsoluteDistanceEstimator):
-        super().__init__(type_prefix, abs_align_est=abs_align_est, abs_dist_est=abs_dist_est)
+                 abs_align_est: DisplacementEstimator, abs_dist_est: AbsoluteDistanceEstimator,
+                 repr_creator: RepresentationsCreator):
+        super().__init__(type_prefix, abs_align_est=abs_align_est, abs_dist_est=abs_dist_est,
+                         repr_creator=repr_creator)
 
     def _process_rel_alignment(self, msg):
         rospy.logwarn("This function is not available for this fusion class")
@@ -24,6 +26,8 @@ class BearnavClassic(SensorFusion):
     def _process_abs_alignment(self, msg):
         # This is not ideal since we assume certain message type beforhand - however this class should be message agnostic!
         # msg.map_images.data = [msg.map_images.data[len(msg.map_images.data) // 2]]     # choose only the middle image
+        if len(msg.map_images.data) > 1:
+            rospy.logwarn("Bearnav classic can process only one image")
         histogram = self.abs_align_est.displacement_message_callback(msg)
         self.alignment = (np.argmax(histogram) - np.size(histogram)//2) / (np.size(histogram)//2)
         rospy.logwarn("Current displacement: " + str(self.alignment))
@@ -41,12 +45,17 @@ class BearnavClassic(SensorFusion):
         rospy.logwarn("This function is not available for this fusion class")
         raise Exception("Bearnav Classic does not support probability of distances")
 
+    def _create_representations(self, msg):
+        return self.repr_creator.to_representations(msg)
+
 
 class VisualOnly(SensorFusion):
 
     def __init__(self, type_prefix: str,
-                 abs_align_est: DisplacementEstimator, prob_dist_est: ProbabilityDistanceEstimator):
-        super().__init__(type_prefix, abs_align_est=abs_align_est, prob_dist_est=prob_dist_est)
+                 abs_align_est: DisplacementEstimator, prob_dist_est: ProbabilityDistanceEstimator,
+                 repr_creator: RepresentationsCreator):
+        super().__init__(type_prefix, abs_align_est=abs_align_est, prob_dist_est=prob_dist_est,
+                         repr_creator=repr_creator)
 
     def _process_rel_alignment(self, msg):
         rospy.logwarn("This function is not available for this fusion class")
@@ -75,18 +84,19 @@ class VisualOnly(SensorFusion):
         rospy.logwarn("Predicted dist: " + str(self.distance) + " and alignment: " + str(self.alignment))
         self.publish_dist()
 
-
+    def _create_representations(self, msg):
+        return self.repr_creator.to_representations(msg)
 
 
 class PF2D(SensorFusion):
 
-
     def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
                  align_error: float, align_init_std: float, particles_frac: int, debug: bool,
                  abs_align_est: DisplacementEstimator, rel_align_est: DisplacementEstimator,
-                 rel_dist_est: RelativeDistanceEstimator):
+                 rel_dist_est: RelativeDistanceEstimator, repr_creator: RepresentationsCreator):
         super(PF2D, self).__init__(type_prefix, abs_align_est=abs_align_est,
-                                   rel_align_est=rel_align_est, rel_dist_est=rel_dist_est)
+                                   rel_align_est=rel_align_est, rel_dist_est=rel_dist_est,
+                                   repr_creator=repr_creator)
 
         self.odom_error = odom_error
         self.align_error = align_error
@@ -223,6 +233,9 @@ class PF2D(SensorFusion):
     def _process_prob_distance(self, msg):
         rospy.logwarn("This function is not available for this fusion class")
         raise Exception("PF2D does not support distance probabilities")
+
+    def _create_representations(self, msg):
+        return self.repr_creator.to_representations(msg)
 
     def _numpy_softmax(self, arr):
         tmp = np.exp(arr) / np.sum(np.exp(arr))

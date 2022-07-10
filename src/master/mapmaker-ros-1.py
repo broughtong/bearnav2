@@ -20,6 +20,9 @@ TARGET_WIDTH = 512
 br = CvBridge()
 
 
+# TODO: save representations and send features for major speedup
+
+
 def save_img(img_msg, filename):
     img = br.imgmsg_to_cv2(img_msg)
     (h, w) = img.shape[:2]
@@ -77,8 +80,8 @@ class ActionServer:
         self.server.start()
 
         if self.visual_turn:
-            rospy.wait_for_service("repeat/local_alignment")
-            self.local_align = rospy.ServiceProxy("repeat/local_alignment", Alignment)
+            rospy.wait_for_service("local_alignment")
+            self.local_align = rospy.ServiceProxy("local_alignment", Alignment)
             rospy.logwarn("Local alignment service available for mapmaker")
 
         rospy.logdebug("Subscibing to cameras")

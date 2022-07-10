@@ -29,12 +29,12 @@ def start_subscribes(fusion_class,
     # service for rel alignment
     relative_image_service = None
     if fusion_class.rel_align_est is not None and len(rel_align_service_name) > 0:
-        relative_image_service = rospy.Service(fusion_class.type_prefix + "/" + rel_align_service_name,
+        relative_image_service = rospy.Service(rel_align_service_name,
                                                Alignment, fusion_class.process_rel_alignment)
     # service for representations
     representation_service = None
     if fusion_class.repr_creator is not None and len(repr_service_name) > 0:
-        representation_service = rospy.Service(fusion_class.type_prefix + "/" + repr_service_name,
+        representation_service = rospy.Service(repr_service_name,
                                                Representations, fusion_class.create_representations)
 
     return relative_image_service, representation_service
@@ -51,10 +51,12 @@ if __name__ == '__main__':
     dist_rel = OdometryRelative()
 
     # Set here fusion method for teaching phase -------------------------------------------
-    teach_fusion = BearnavClassic("teach", align_abs, dist_abs)
-    teach_handler = start_subscribes(teach_fusion,
-                                     "", "/husky_velocity_controller/odom", "", "",
-                                     "", "")
+    teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs)
+    teach_handlers = start_subscribes(teach_fusion,
+                                      "", "/husky_velocity_controller/odom", "", "",
+                                      "", "")
+
+    # TODO: set representations here
 
     # Set here fusion method for repeating phase ------------------------------------------
     # 1) Bearnav classic - this method also needs publish span 0 in the repeater !!!
@@ -64,12 +66,12 @@ if __name__ == '__main__':
     #                                    "", "")
     # 2) Particle filter 2D - parameters are really important
     repeat_fusion = PF2D("repeat", 500, 0.25, 1.0, 0.03, 0.3, 2, True,
-                         align_abs, align_rel, dist_rel)
+                         align_abs, align_rel, dist_rel, align_abs)
     repeat_handlers = start_subscribes(repeat_fusion,
                                        "sensors_input", "", "/husky_velocity_controller/odom", "",
-                                       "local_alignment", "")
+                                       "local_alignment", "get_repr")
     # 3) Visual Only
-    # repeat_fusion = VisualOnly("repeat", align_abs, align_abs)
+    # repeat_fusion = VisualOnly("repeat", align_abs, align_abs, align_abs)
     # repeat_handler = start_subscribes(repeat_fusion,
     #                                   "sensors_input", "", "", "sensors_input",
     #                                   "", "")

@@ -22,7 +22,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
                  AbsoluteDistanceEstimator, RepresentationsCreator):
 
     def __init__(self):
-        # TODO: all sensorinputs should be changed from ImageList to Features for major speedup
+        # TODO: all sensor inputs should be changed from ImageList to Features for major speedup
         super(SiameseCNN, self).__init__()
         self.supported_message_type = SensorsInput
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
@@ -58,8 +58,15 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         return self.distances[np.argmax(self.distances_probs)]
 
     def _get_representations(self, msg: ImageList) -> Features:
-        # TODO: finish this for major bearnav speedup
-        raise NotImplementedError
+        tensor_in = self.image_to_tensor(msg.data)
+        reprs = self.model.get_repr(tensor_in)
+        ret_features = []
+        for repr in reprs:
+            f = Features()
+            f.shape = repr.shape
+            f.values = t.flatten(repr).cpu().numpy()
+            ret_features.append(f)
+        return ret_features
 
     def health_check(self) -> bool:
         return True
@@ -70,7 +77,6 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         interp_hist = f(np.arange(0, RESIZE_W))
         self.distances_probs = np.max(interp_hist, axis=1)
         ret = []
-        # TODO: here is problem with dimensions!
         for hist in interp_hist:
             zeros = np.zeros(np.size(hist[0])//2)
             ret.append(np.concatenate([zeros, hist, zeros]))    # siam can do only -0.5 to 0.5 img so extend both sides by sth

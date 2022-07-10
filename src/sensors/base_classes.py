@@ -74,6 +74,7 @@ class RelativeDistanceEstimator(ABC):
         raise NotImplementedError
 
 
+# TODO: absolute distance is probably subclass of probability distance, rework this into one class
 class AbsoluteDistanceEstimator(ABC):
     """
     Abstract method for estimating the absolute distance traveled.
@@ -162,8 +163,15 @@ class RepresentationsCreator(ABC):
         resp.features = self._to_representation(inputs.images)
         return resp
 
+    def from_feature(self, feature: Features) -> object:
+        return self._from_feature(feature)
+
     @abstractmethod
     def _to_representation(self, inputs: object) -> Features:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _from_feature(self, feature: Features):
         raise NotImplementedError
 
     @abstractmethod
