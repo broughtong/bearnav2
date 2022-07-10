@@ -2,6 +2,7 @@
 float64 startPos
 float64 endPos
 uint8 traversals
+uint8 imagePub
 string mapName
 ---
 #result definition
