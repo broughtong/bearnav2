@@ -57,7 +57,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             self.process_msg(msg)
         return self.distances[np.argmax(self.distances_probs)]
 
-    def _get_representations(self, msg: ImageList) -> Features:
+    def _to_representation(self, msg: ImageList) -> Features:
         tensor_in = self.image_to_tensor(msg.data)
         reprs = self.model.get_repr(tensor_in)
         ret_features = []
@@ -67,6 +67,9 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             f.values = t.flatten(repr).cpu().numpy()
             ret_features.append(f)
         return ret_features
+
+    def _from_feature(self, msg):
+        raise Exception()
 
     def health_check(self) -> bool:
         return True

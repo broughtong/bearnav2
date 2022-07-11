@@ -64,7 +64,6 @@ class ActionServer():
         self.map_distances = []
         self.action_dists = None
         self.actions = []
-        # TODO: this is very important parameter - think about it!
         self.map_publish_span = 1
         self.map_transitions = []
 
@@ -189,6 +188,13 @@ class ActionServer():
         self.align_reset_srv(0.0)
         self.endPosition = goal.endPos
         self.nextStep = 0
+
+        # reload all the buffers
+        self.map_images = []
+        self.map_distances = []
+        self.action_dists = None
+        self.actions = []
+        self.map_transitions = []
 
         map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances,
                                                              self.map_transitions))

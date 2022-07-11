@@ -56,11 +56,11 @@ if __name__ == '__main__':
                                       "", "/husky_velocity_controller/odom", "", "",
                                       "", "")
 
-    # TODO: set representations here
 
+    # TODO: map recording currently need local alignment which conatins only the pf2D
     # Set here fusion method for repeating phase ------------------------------------------
     # 1) Bearnav classic - this method also needs publish span 0 in the repeater !!!
-    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs)
+    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs)
     # repeat_handlers = start_subscribes(repeat_fusion,
     #                                    "sensors_input", "/husky_velocity_controller/odom", "", "",
     #                                    "", "")

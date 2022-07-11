@@ -165,7 +165,7 @@ class PF2D(SensorFusion):
         # particle_prob = particle_prob/np.sum(particle_prob)
         # choose best candidates and reduce the number of particles
         part_indices = np.arange(np.shape(self.particles)[1])
-        # rospy.logwarn(str(np.shape(particle_prob)) + "," + str(np.shape(part_indices)))
+        # TODO: maybe resampling with repetition would be better!
         chosen_indices = np.random.choice(part_indices, int(self.particles_num/self.particles_frac),
                                           p=particle_prob/np.sum(particle_prob))
         self.particles = self.particles[:, chosen_indices]
