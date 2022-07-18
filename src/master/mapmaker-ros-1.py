@@ -80,8 +80,8 @@ class ActionServer:
         self.server.start()
 
         if self.visual_turn:
-            rospy.wait_for_service("local_alignment")
-            self.local_align = rospy.ServiceProxy("local_alignment", Alignment)
+            rospy.wait_for_service("teach/local_alignment")
+            self.local_align = rospy.ServiceProxy("teach/local_alignment", Alignment)
             rospy.logwarn("Local alignment service available for mapmaker")
 
         rospy.logdebug("Subscibing to cameras")

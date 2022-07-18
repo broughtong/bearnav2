@@ -15,13 +15,15 @@ class BearnavClassic(SensorFusion):
 
     def __init__(self, type_prefix: str,
                  abs_align_est: DisplacementEstimator, abs_dist_est: AbsoluteDistanceEstimator,
-                 repr_creator: RepresentationsCreator):
+                 repr_creator: RepresentationsCreator, rel_align_est: DisplacementEstimator):
         super().__init__(type_prefix, abs_align_est=abs_align_est, abs_dist_est=abs_dist_est,
-                         repr_creator=repr_creator)
+                         rel_align_est=rel_align_est, repr_creator=repr_creator)
 
     def _process_rel_alignment(self, msg):
-        rospy.logwarn("This function is not available for this fusion class")
-        raise Exception("Bearnav Classic does not support relative alignment")
+        histogram = self.rel_align_est.displacement_message_callback(msg.input)
+        out = AlignmentResponse()
+        out.histograms = histogram
+        return out
 
     def _process_abs_alignment(self, msg):
         # This is not ideal since we assume certain message type beforhand - however this class should be message agnostic!

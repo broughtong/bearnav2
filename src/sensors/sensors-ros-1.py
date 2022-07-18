@@ -29,7 +29,7 @@ def start_subscribes(fusion_class,
     # service for rel alignment
     relative_image_service = None
     if fusion_class.rel_align_est is not None and len(rel_align_service_name) > 0:
-        relative_image_service = rospy.Service(rel_align_service_name,
+        relative_image_service = rospy.Service(fusion_class.type_prefix + "/" + rel_align_service_name,
                                                Alignment, fusion_class.process_rel_alignment)
     # service for representations
     representation_service = None
@@ -43,6 +43,7 @@ def start_subscribes(fusion_class,
 if __name__ == '__main__':
     rospy.init_node("sensor_processing")
     rospy.loginfo("Sensor processing started!")
+    odom_topic = rospy.get_param("~odom_topic")
 
     # Choose sensor method
     align_abs = SiameseCNN()
@@ -51,16 +52,14 @@ if __name__ == '__main__':
     dist_rel = OdometryRelative()
 
     # Set here fusion method for teaching phase -------------------------------------------
-    teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs)
+    teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs, align_rel)
     teach_handlers = start_subscribes(teach_fusion,
-                                      "", "/husky_velocity_controller/odom", "", "",
-                                      "", "")
+                                      "", odom_topic, "", "",
+                                      "local_alignment", "")
 
-
-    # TODO: map recording currently need local alignment which conatins only the pf2D
     # Set here fusion method for repeating phase ------------------------------------------
     # 1) Bearnav classic - this method also needs publish span 0 in the repeater !!!
-    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs)
+    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs, None)
     # repeat_handlers = start_subscribes(repeat_fusion,
     #                                    "sensors_input", "/husky_velocity_controller/odom", "", "",
     #                                    "", "")
@@ -68,7 +67,7 @@ if __name__ == '__main__':
     repeat_fusion = PF2D("repeat", 500, 0.25, 1.0, 0.03, 0.3, 2, True,
                          align_abs, align_rel, dist_rel, align_abs)
     repeat_handlers = start_subscribes(repeat_fusion,
-                                       "sensors_input", "", "/husky_velocity_controller/odom", "",
+                                       "sensors_input", "", odom_topic, "",
                                        "local_alignment", "get_repr")
     # 3) Visual Only
     # repeat_fusion = VisualOnly("repeat", align_abs, align_abs, align_abs)

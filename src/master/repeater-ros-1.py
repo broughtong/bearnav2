@@ -66,6 +66,7 @@ class ActionServer():
         self.actions = []
         self.map_publish_span = 1
         self.map_transitions = []
+        self.use_distances = False
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -140,10 +141,14 @@ class ActionServer():
         if self.curr_dist >= (self.map_distances[-1] - 0.05) or\
                 (self.endPosition != 0.0 and self.endPosition < self.curr_dist):
             rospy.logwarn("GOAL REACHED, STOPPING REPEATER")
+            self.isRepeating = False
+            if self.use_distances:
+                self.action_dists = []
+                self.actions = []
             self.shutdown()
 
-        # TODO: create a method here - replay distancewise
-        self.play_closest_action()
+        if self.use_distances:
+            self.play_closest_action()
 
     def goalValid(self, goal):
         
@@ -203,6 +208,7 @@ class ActionServer():
         rospy.logwarn("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
+        self.use_distances = goal.useDist
     
         #create publishers
         additionalPublishers = {}
@@ -213,14 +219,16 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
-        self.parse_rosbag()
         time.sleep(3)       # waiting till some map images are parsed
         self.isRepeating = True
         # kick into the robot at the beggining:
-        self.play_closest_action()
-        # self.replay_timewise(additionalPublishers)    # for timewise repeating
+        rospy.loginfo("Repeating started!")
+        if self.use_distances:
+            self.parse_rosbag()
+            self.play_closest_action()
+        else:
+            self.replay_timewise(additionalPublishers)    # for timewise repeating
 
-        rospy.loginfo("Repeating!")
         # self.shutdown() only for sth
         result = MapRepeaterResult()
         result.success = True

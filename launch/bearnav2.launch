@@ -12,7 +12,10 @@
 
     <group ns="bearnav2">
 
-        <node pkg="bearnav2" type="sensors-ros-1.py" name="sensors" respawn="true" args="-OO" />
+        <node pkg="bearnav2" type="sensors-ros-1.py" name="sensors" respawn="true" args="-OO" >
+            <param name="odom_topic" type="string" value="$(arg odom_topic)" />
+        </node>
+
 
         <!-- node for creating maps -->
         <node pkg="bearnav2" type="mapmaker-ros-1.py" name="mapmaker" respawn="true" args="-OO">
