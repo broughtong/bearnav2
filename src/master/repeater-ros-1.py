@@ -13,11 +13,8 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
 from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList
 from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment
-from cv_bridge import CvBridge
 import numpy as np
-
-
-BR = CvBridge()
+import ros_numpy
 
 
 def numpy_softmax(arr):
@@ -35,7 +32,9 @@ def load_map(mappath, images, distances, trans_hists):
     for idx, dist_turn in enumerate(tmp):
 
         distances.append(float(dist_turn[0]))
-        images.append(BR.cv2_to_imgmsg(cv2.imread(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".jpg"))))
+        img = cv2.imread(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".jpg"))
+        img_msg = ros_numpy.msgify(Image, img, "bgr8")
+        images.append(img_msg)
         rospy.logwarn("Loaded map image: " + dist_turn[0] + "_" + dist_turn[1] + str(".jpg"))
         if idx > 0:
             trans_hists.append(float(dist_turn[1]))
@@ -49,7 +48,6 @@ class ActionServer():
     def __init__(self):
 
         #some vars
-        self.br = CvBridge()
         self.img = None
         self.mapName = ""
         self.mapStep = None

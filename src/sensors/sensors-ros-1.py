@@ -61,11 +61,11 @@ if __name__ == '__main__':
     # 1) Bearnav classic - this method also needs publish span 0 in the repeater !!!
     # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs, None)
     # repeat_handlers = start_subscribes(repeat_fusion,
-    #                                    "sensors_input", "/husky_velocity_controller/odom", "", "",
+    #                                    "sensors_input", odom_topic, "", "",
     #                                    "", "")
     # 2) Particle filter 2D - parameters are really important
     repeat_fusion = PF2D("repeat", 500, 0.25, 1.0, 0.03, 0.3, 2, True,
-                         align_abs, align_rel, dist_rel, align_abs)
+                          align_abs, align_rel, dist_rel, align_abs)
     repeat_handlers = start_subscribes(repeat_fusion,
                                        "sensors_input", "", odom_topic, "",
                                        "local_alignment", "get_repr")

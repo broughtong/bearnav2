@@ -4,13 +4,12 @@ matplotlib.use('Agg')
 import rospy
 import cv2
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
 from bearnav2.msg import FloatList
 import matplotlib.pyplot as plt
 import numpy as np
+import ros_numpy
 
 pub = None
-br = CvBridge()
 
 
 def callback(msg):
@@ -37,7 +36,7 @@ def callback(msg):
     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     plt.close()
 
-    msg = br.cv2_to_imgmsg(img, encoding="rgb8")
+    msg = ros_numpy.msgify(Image, img, "rgb8")
     pub.publish(msg)
 
 

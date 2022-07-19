@@ -12,19 +12,18 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32, Header
 from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList, DistancedTwist
 from bearnav2.srv import SetDist, Alignment
-from cv_bridge import CvBridge
 import numpy as np
 from copy import deepcopy
+import ros_numpy
 
 TARGET_WIDTH = 512
-br = CvBridge()
 
 
 # TODO: save representations and send features for major speedup
 
 
 def save_img(img_msg, filename):
-    img = br.imgmsg_to_cv2(img_msg)
+    img = ros_numpy.numpify(img_msg)
     (h, w) = img.shape[:2]
     r = TARGET_WIDTH / float(w)
     dim = (TARGET_WIDTH, int(h * r))

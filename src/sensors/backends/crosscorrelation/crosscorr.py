@@ -4,16 +4,15 @@ import torch as t
 from torch.nn import functional as F
 from torchvision import transforms
 import rospy
-from cv_bridge import CvBridge
 import os
 from bearnav2.msg import SensorsInput
 from typing import List
 from scipy import interpolate
+import ros_numpy
 
 
 PAD = 32
 NEWTORK_DIVISION = 8.0
-RESIZE_H = int(320 // NEWTORK_DIVISION)
 RESIZE_W = int(512 // NEWTORK_DIVISION)
 
 
@@ -25,8 +24,6 @@ class CrossCorrelation(DisplacementEstimator):
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
         # init neural network
         self.to_tensor = transforms.ToTensor()
-        self.resize = transforms.Resize(RESIZE_H)
-        self.cv_parser = CvBridge()
         self.alignment_processing = False
         self.histograms = None
         self.distances_probs = None
@@ -41,6 +38,7 @@ class CrossCorrelation(DisplacementEstimator):
         return True
 
     def process_msg(self, msg):
+        # TODO: check if it's working for multiple map images
         hist = self.forward(msg.map_images.data, msg.live_images.data)      # not sure about .data here
         f = interpolate.interp1d(np.linspace(0, int(RESIZE_W * NEWTORK_DIVISION), len(hist[0])), hist[0], kind="cubic")
         interp_hist = f(np.arange(0, int(RESIZE_W * NEWTORK_DIVISION)))
@@ -74,7 +72,15 @@ class CrossCorrelation(DisplacementEstimator):
         return match_map
 
     def image_to_tensor(self, imgs):
-        image_list = [self.resize(self.to_tensor(np.array(self.cv_parser.imgmsg_to_cv2(img))).to(self.device))
+        desired_height = int(imgs[0].height * RESIZE_W / imgs[0].width)
+        image_list = [self.bgr_to_rgb(transforms.Resize(desired_height)(self.to_tensor(ros_numpy.numpify(img)).to(self.device)))
                       for img in imgs]
         stacked_tensor = t.stack(image_list)
         return stacked_tensor
+
+    def bgr_to_rgb(self, tensor):
+        # b = tensor[0, :, :].clone()
+        # r = tensor[2, :, :].clone()
+        # tensor[0, :, :] = r
+        # tensor[2, :, :] = b
+        return tensor

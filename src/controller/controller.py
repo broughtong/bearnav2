@@ -7,7 +7,7 @@ class Controller:
         self.alignment = 0
         self.uncertainty = 0
         self.useUncertainty = True
-        self.turnGain = 0.5  #turn 0.1 rad per each pixel of error
+        self.turnGain = 0.2  #turn 0.1 rad per each pixel of error
         self.velocityGain = 1 # 1 is same speed as thought map, less is slower more is faster
 
     def process(self, msg):

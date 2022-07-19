@@ -151,7 +151,7 @@ class PF2D(SensorFusion):
 
         # sensor step -------------------------------------------------------------------------------
         # interpolate
-        self.particles[0] = np.clip(self.particles[0], dists[0], dists[-1])
+        self.particles[0] = np.clip(self.particles[0], dists[0] - 0.5, dists[-1] + 0.5)
         self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)
         hist_width = np.shape(hists)[1]
         xs, ys = np.meshgrid(dists, np.linspace(-1.0, 1.0, hist_width))
@@ -197,7 +197,7 @@ class PF2D(SensorFusion):
             trans_diff = np.array(trans_cumsum_per_particle * frac_per_particle)
 
             # particles are shifted in odometry processing - thus np.zeros
-            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), curr_img_diff - trans_diff), axis=1)
+            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), -curr_img_diff + trans_diff), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
                                                scale=(self.odom_error * traveled, self.align_error),
