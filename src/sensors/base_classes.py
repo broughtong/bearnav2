@@ -100,7 +100,10 @@ class AbsoluteDistanceEstimator(ABC):
 
     def set_dist(self, dist):
         rospy.logwarn("Setting distance to: " + str(dist))
-        self._distance = dist
+        self._distance = self._set_dist(dist)
+
+    def _set_dist(self, dist):
+        return dist
 
     @abstractmethod
     def _abs_dist_message_callback(self, msg: object) -> float:

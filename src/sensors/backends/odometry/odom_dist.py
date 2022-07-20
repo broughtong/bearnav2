@@ -14,13 +14,17 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
     def _abs_dist_message_callback(self, msg: Odometry):
         if self.last_odom is None:
             self.last_odom = msg
-            return None
+            return self._distance
         dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
         self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
         self.last_odom = msg
         return self._distance
+
+    def _set_dist(self, dist):
+        self.last_odom = None
+        return dist
 
     def health_check(self):
         return True
