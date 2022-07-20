@@ -35,7 +35,7 @@ class ActionServer:
 
     def __init__(self):
 
-        #some vars
+        # TODO parametrize mapstep and curr trans in action message!
         self.isMapping = False
         self.img_msg = None
         self.last_img_msg = None

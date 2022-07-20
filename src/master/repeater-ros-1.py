@@ -65,6 +65,7 @@ class ActionServer():
         self.map_publish_span = 1
         self.map_transitions = []
         self.use_distances = False
+        self.distance_finish_offset = 0.2
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -136,7 +137,7 @@ class ActionServer():
 
         self.curr_dist = msg.output
 
-        if self.curr_dist >= (self.map_distances[-1] - 0.05) or\
+        if self.curr_dist >= (self.map_distances[-1] - self.distance_finish_offset) and self.use_distances or\
                 (self.endPosition != 0.0 and self.endPosition < self.curr_dist):
             rospy.logwarn("GOAL REACHED, STOPPING REPEATER")
             self.isRepeating = False
