@@ -33,7 +33,7 @@ def load_map(mappath, images, distances, trans_hists):
 
         distances.append(float(dist_turn[0]))
         img = cv2.imread(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".jpg"))
-        img_msg = ros_numpy.msgify(Image, img, "bgr8")
+        img_msg = ros_numpy.msgify(Image, img, "rgb8")
         images.append(img_msg)
         rospy.logwarn("Loaded map image: " + dist_turn[0] + "_" + dist_turn[1] + str(".jpg"))
         if idx > 0:
@@ -79,7 +79,7 @@ class ActionServer():
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.pubSensorsInput, queue_size=1)
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.pubSensorsInput, queue_size=1, buff_size=20000000)
         rospy.logwarn(self.camera_topic)
 
         rospy.logdebug("Connecting to sensors module")
@@ -218,7 +218,7 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
-        time.sleep(3)       # waiting till some map images are parsed
+        time.sleep(5)       # waiting till some map images are parsed
         self.isRepeating = True
         # kick into the robot at the beggining:
         rospy.loginfo("Repeating started!")

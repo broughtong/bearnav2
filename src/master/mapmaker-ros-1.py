@@ -68,11 +68,11 @@ class ActionServer:
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
         self.distance_reset_srv(0.0)
         self.align_reset_srv(0.0)
-        self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=10)
 
         rospy.logdebug("Subscibing to commands")
         self.joy_topic = rospy.get_param("~cmd_vel_topic")
-        self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB, queue_size=1)
+        self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB, queue_size=100, buff_size=250000)
 
         rospy.logdebug("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)
@@ -85,7 +85,7 @@ class ActionServer:
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
 
         rospy.logwarn("Mapmaker started, awaiting goal")
 
@@ -98,7 +98,7 @@ class ActionServer:
     def imageCB(self, msg):
         # save image on image shift
         self.img_msg = msg
-
+        curr_dist = self.lastDistance
         if self.visual_turn and self.last_img_msg is not None and self.isMapping:
             # create message
             srv_msg = SensorsInput()
@@ -110,10 +110,10 @@ class ActionServer:
                 hist = resp1.histograms[0].data
                 half_size = np.size(hist)/2.0
                 self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
-                if abs(self.curr_trans) > self.max_trans and self.last_saved_dist != self.lastDistance:
+                if abs(self.curr_trans) > self.max_trans and self.last_saved_dist != self.curr_dist:
                     rospy.logdebug("Hit waypoint turn")
-                    self.nextStep = self.lastDistance + self.mapStep
-                    filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
+                    self.nextStep = curr_dist + self.mapStep
+                    filename = os.path.join(self.mapName, str(curr_dist) + "_" + str(self.curr_trans) + ".jpg")
                     save_img(self.img_msg, filename)  # with resizing
                     self.last_img_msg = self.img_msg
             except Exception as e:
