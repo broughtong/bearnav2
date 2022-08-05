@@ -34,7 +34,7 @@ def start_subscribes(fusion_class,
     # service for representations
     representation_service = None
     if fusion_class.repr_creator is not None and len(repr_service_name) > 0:
-        representation_service = rospy.Service(repr_service_name,
+        representation_service = rospy.Service(fusion_class.type_prefix + "/" + repr_service_name,
                                                Representations, fusion_class.create_representations)
 
     return relative_image_service, representation_service
@@ -55,20 +55,20 @@ if __name__ == '__main__':
     teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs, align_rel)
     teach_handlers = start_subscribes(teach_fusion,
                                       "", odom_topic, "", "",
-                                      "local_alignment", "")
+                                      "local_alignment", "get_repr")
 
     # Set here fusion method for repeating phase ------------------------------------------
     # 1) Bearnav classic - this method also needs publish span 0 in the repeater !!!
-    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs, None)
-    # repeat_handlers = start_subscribes(repeat_fusion,
-    #                                    "sensors_input", odom_topic, "", "",
-    #                                    "", "")
-    # 2) Particle filter 2D - parameters are really important
-    repeat_fusion = PF2D("repeat", 500, 0.25, 1.0, 0.03, 0.3, 2, True,
-                          align_abs, align_rel, dist_rel, align_abs)
+    repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs, None)
     repeat_handlers = start_subscribes(repeat_fusion,
-                                       "sensors_input", "", odom_topic, "",
-                                       "local_alignment", "get_repr")
+                                       "sensors_input", odom_topic, "", "",
+                                       "", "")
+    # 2) Particle filter 2D - parameters are really important
+    # repeat_fusion = PF2D("repeat", 500, 0.25, 1.0, 0.03, 0.3, 2, True,
+    #                      align_abs, align_rel, dist_rel, align_abs)
+    # repeat_handlers = start_subscribes(repeat_fusion,
+    #                                    "sensors_input", "", odom_topic, "",
+    #                                    "local_alignment", "")
     # 3) Visual Only
     # repeat_fusion = VisualOnly("repeat", align_abs, align_abs, align_abs)
     # repeat_handler = start_subscribes(repeat_fusion,

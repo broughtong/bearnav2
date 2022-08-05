@@ -28,7 +28,7 @@ class BearnavClassic(SensorFusion):
     def _process_abs_alignment(self, msg):
         # This is not ideal since we assume certain message type beforhand - however this class should be message agnostic!
         # msg.map_images.data = [msg.map_images.data[len(msg.map_images.data) // 2]]     # choose only the middle image
-        if len(msg.map_images.data) > 1:
+        if len(msg.map_features) > 1:
             rospy.logwarn("Bearnav classic can process only one image")
         histogram = self.abs_align_est.displacement_message_callback(msg)
         self.alignment = (np.argmax(histogram) - np.size(histogram)//2) / (np.size(histogram)//2)
@@ -46,9 +46,6 @@ class BearnavClassic(SensorFusion):
     def _process_prob_distance(self, msg):
         rospy.logwarn("This function is not available for this fusion class")
         raise Exception("Bearnav Classic does not support probability of distances")
-
-    def _create_representations(self, msg):
-        return self.repr_creator.to_representations(msg)
 
 
 class VisualOnly(SensorFusion):
@@ -79,15 +76,13 @@ class VisualOnly(SensorFusion):
         raise Exception("Visual only does not support absolute distance")
 
     def _process_prob_distance(self, msg):
+        # TODO: this method usually publishes with too low frequency to control the spot
         dists = msg.map_distances
         probs = self.prob_dist_est.prob_dist_message_callback(msg)
-        # TODO:  this must be reworked some interpolation is better - more fancy :)
+        # TODO: add some interpolation to more cleanly choose between actions - more fancy :)
         self.distance = dists[np.argmax(probs)]
         rospy.logwarn("Predicted dist: " + str(self.distance) + " and alignment: " + str(self.alignment))
         self.publish_dist()
-
-    def _create_representations(self, msg):
-        return self.repr_creator.to_representations(msg)
 
 
 class PF2D(SensorFusion):
@@ -137,7 +132,15 @@ class PF2D(SensorFusion):
 
     def _process_abs_alignment(self, msg):
         # get everything
-        hists = np.array(self.abs_align_est.displacement_message_callback(msg))
+        if self.last_image is not None:
+            msg.map_features.append(self.last_image[0])
+            out = np.array(self.abs_align_est.displacement_message_callback(msg))
+            hists = out[:-1]
+            live_hist = out[-1]
+            curr_img_diff = self._diff_from_hist(live_hist)
+        else:
+            hists = np.array(self.abs_align_est.displacement_message_callback(msg))
+            curr_img_diff = 0.0
         trans = np.array(msg.map_transitions)
         dists = np.array(msg.map_distances)
         traveled = self.traveled_dist  # this is when odometry is slower than camera
@@ -164,7 +167,6 @@ class PF2D(SensorFusion):
                                              method="nearest")
         # get probabilites of particles
         particle_prob = self._numpy_softmax(particle_prob)
-        # particle_prob = particle_prob/np.sum(particle_prob)
         # choose best candidates and reduce the number of particles
         part_indices = np.arange(np.shape(self.particles)[1])
         # TODO: maybe resampling with repetition would be better!
@@ -173,10 +175,10 @@ class PF2D(SensorFusion):
         self.particles = self.particles[:, chosen_indices]
 
         # motion step --------------------------------------------------------------------------------
-        if self.last_image is not None:
-            curr_img_diff = self._get_rel_alignment(msg.live_images)
-        else:
-            curr_img_diff = 0
+        # if self.last_image is not None:
+        #     curr_img_diff = self._get_rel_alignment(msg.live_images)
+        # else:
+        #     curr_img_diff = 0
 
         # get map transition for each particle
         mat_dists = np.transpose(np.matrix(dists))
@@ -206,7 +208,7 @@ class PF2D(SensorFusion):
 
         self.particles = np.concatenate(out).transpose()
 
-        self.last_image = msg.live_images
+        self.last_image = msg.live_features
         self.traveled_dist = 0.0
         self._get_coords()
         self.publish_align()
@@ -236,9 +238,6 @@ class PF2D(SensorFusion):
         rospy.logwarn("This function is not available for this fusion class")
         raise Exception("PF2D does not support distance probabilities")
 
-    def _create_representations(self, msg):
-        return self.repr_creator.to_representations(msg)
-
     def _numpy_softmax(self, arr):
         tmp = np.exp(arr) / np.sum(np.exp(arr))
         return tmp
@@ -255,6 +254,11 @@ class PF2D(SensorFusion):
         self.distance_std = stds[0]
         self.alignment_std = stds[1]
 
+    def _diff_from_hist(self, hist):
+        half_size = np.size(hist) / 2.0
+        curr_img_diff = ((np.argmax(hist) - (np.size(hist) // 2.0)) / half_size)
+        return curr_img_diff
+
     def _get_rel_alignment(self, live_imgs: ImageList):
         rel_msg = SensorsInput()
         rel_msg.live_images = live_imgs
@@ -262,7 +266,6 @@ class PF2D(SensorFusion):
         # rospy.logwarn(rel_msg.map_images)
         # rospy.logwarn(rel_msg.live_images)
         hists = self.rel_align_est.displacement_message_callback(rel_msg)
-        half_size = np.size(hists) / 2.0
-        curr_img_diff = ((np.argmax(hists[0]) - (np.size(hists) // 2.0)) / half_size)
+        curr_img_diff = self._diff_from_hist(hists[0])
         rospy.logwarn("curr img diff: " + str(curr_img_diff))
         return curr_img_diff

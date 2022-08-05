@@ -162,16 +162,16 @@ class RepresentationsCreator(ABC):
         self.supported_message_type = None
         self.health_check()
 
-    def to_representations(self, inputs: Representations) -> RepresentationsResponse:
+    def to_feature(self, inputs: Representations) -> RepresentationsResponse:
         resp = RepresentationsResponse()
-        resp.features = self._to_representation(inputs.images)
+        resp.features = self._to_feature(inputs.images)
         return resp
 
     def from_feature(self, feature: Features) -> object:
         return self._from_feature(feature)
 
     @abstractmethod
-    def _to_representation(self, inputs: object) -> Features:
+    def _to_feature(self, inputs: object) -> Features:
         raise NotImplementedError
 
     @abstractmethod
@@ -259,13 +259,15 @@ class SensorFusion(ABC):
         self.alignment_std = 0.0
         return SetDistResponse()
 
-    # this public enclosure ensures that topics are not subscribed until needed
+    # callback for services
+    def create_representations(self, msg):
+        # this method is very general, so it does not have private counterpart to implement
+        return self.repr_creator.to_feature(msg)
+
     def process_rel_alignment(self, msg):
         return self._process_rel_alignment(msg)
 
-    def create_representations(self, msg):
-        return self._create_representations(msg)
-
+    # this public enclosure ensures that topics are not subscribed until needed
     def process_abs_alignment(self, msg):
         if self.alignment is not None:
             self._process_abs_alignment(msg)
@@ -284,10 +286,6 @@ class SensorFusion(ABC):
 
     @abstractmethod
     def _process_rel_alignment(self, msg):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _create_representations(self, msg):
         raise NotImplementedError
 
     @abstractmethod

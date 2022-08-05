@@ -5,7 +5,7 @@ from torch.nn import functional as F
 from torchvision import transforms
 import rospy
 import os
-from bearnav2.msg import SensorsInput
+from bearnav2.msg import SensorsInputImages
 from typing import List
 from scipy import interpolate
 import ros_numpy
@@ -20,7 +20,7 @@ class CrossCorrelation(DisplacementEstimator):
 
     def __init__(self):
         super(CrossCorrelation, self).__init__()
-        self.supported_message_type = SensorsInput
+        self.supported_message_type = SensorsInputImages
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
         # init neural network
         self.to_tensor = transforms.ToTensor()
@@ -29,7 +29,7 @@ class CrossCorrelation(DisplacementEstimator):
         self.distances_probs = None
         rospy.logwarn("Cross correlation displacement estimator sucessfully initialized!")
 
-    def _displacement_message_callback(self, msg: SensorsInput) -> List[np.ndarray]:
+    def _displacement_message_callback(self, msg: SensorsInputImages) -> List[np.ndarray]:
         self.alignment_processing = True
         self.process_msg(msg)
         return self.histograms

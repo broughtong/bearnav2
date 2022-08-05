@@ -10,25 +10,33 @@ import roslib
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32, Header
-from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList, DistancedTwist
-from bearnav2.srv import SetDist, Alignment
+from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInputImages, ImageList, DistancedTwist
+from bearnav2.srv import SetDist, Alignment, Representations
 import numpy as np
 from copy import deepcopy
 import ros_numpy
 
+
 TARGET_WIDTH = 512
 
 
-# TODO: save representations and send features for major speedup
+def parse_camera_msg(msg):
+    img = ros_numpy.numpify(msg)
+    if "bgr" in msg.encoding:
+        img = img[..., ::-1]  # switch from bgr to rgb
+    img_msg = ros_numpy.msgify(Image, img, "rgb8")
+    return img_msg
 
 
-def save_img(img_msg, filename):
-    img = ros_numpy.numpify(img_msg)
-    (h, w) = img.shape[:2]
-    r = TARGET_WIDTH / float(w)
-    dim = (TARGET_WIDTH, int(h * r))
-    img = cv2.resize(img, dim)
-    cv2.imwrite(filename, img)
+def save_img(img_msg, filename, save_img, repr_srv):
+    img_msg = parse_camera_msg(img_msg)
+    repr = repr_srv(ImageList([img_msg])).features[0]
+    np_repr = np.reshape(np.array(repr.values, dtype=np.float16), repr.shape)
+    with open(filename + ".npy", 'wb') as fp:
+        np.save(fp, np_repr, allow_pickle=False, fix_imports=False)
+    if save_img:
+        img = ros_numpy.numpify(img_msg)
+        cv2.imwrite(filename + ".jpg", img)
 
 
 class ActionServer:
@@ -48,6 +56,7 @@ class ActionServer:
         self.max_trans = 0.1
         self.curr_trans = 0.0
         self.last_saved_dist = None
+        self.save_imgs = False
 
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
@@ -69,6 +78,10 @@ class ActionServer:
         self.distance_reset_srv(0.0)
         self.align_reset_srv(0.0)
         self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=10)
+
+        rospy.wait_for_service("teach/get_repr")
+        self.get_repr_srv = rospy.ServiceProxy("teach/get_repr", Representations)
+        rospy.logwarn("Mapmaker reached the representation maker!")
 
         rospy.logdebug("Subscibing to commands")
         self.joy_topic = rospy.get_param("~cmd_vel_topic")
@@ -101,7 +114,7 @@ class ActionServer:
         curr_dist = self.lastDistance
         if self.visual_turn and self.last_img_msg is not None and self.isMapping:
             # create message
-            srv_msg = SensorsInput()
+            srv_msg = SensorsInputImages()
             srv_msg.map_images = ImageList([self.last_img_msg])
             srv_msg.live_images = ImageList([self.img_msg])
 
@@ -110,11 +123,11 @@ class ActionServer:
                 hist = resp1.histograms[0].data
                 half_size = np.size(hist)/2.0
                 self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
-                if abs(self.curr_trans) > self.max_trans and self.last_saved_dist != self.curr_dist:
+                if abs(self.curr_trans) > self.max_trans and self.last_saved_dist != curr_dist:
                     rospy.logdebug("Hit waypoint turn")
                     self.nextStep = curr_dist + self.mapStep
-                    filename = os.path.join(self.mapName, str(curr_dist) + "_" + str(self.curr_trans) + ".jpg")
-                    save_img(self.img_msg, filename)  # with resizing
+                    filename = os.path.join(self.mapName, str(curr_dist) + "_" + str(self.curr_trans))
+                    save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
                     self.last_img_msg = self.img_msg
             except Exception as e:
                 rospy.logwarn("Service call failed: %s" % e)
@@ -134,8 +147,8 @@ class ActionServer:
                 rospy.logwarn("Warning: no image received!")
             rospy.logdebug("Hit waypoint distance")
             self.nextStep = self.lastDistance + self.mapStep
-            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
-            save_img(self.img_msg, filename)  # with resizing
+            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans))
+            save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
             self.last_img_msg = self.img_msg
             # cv2.imwrite(filename, self.img)
             rospy.logwarn("Image saved %s" % (filename))
@@ -151,6 +164,8 @@ class ActionServer:
             self.bag.write("recorded_actions", save_msg)
 
     def actionCB(self, goal):
+
+        self.save_imgs = goal.saveImgsForViz
 
         if self.img_msg is None:
             rospy.logerr("WARNING: no image coming through, ignoring")
@@ -192,8 +207,8 @@ class ActionServer:
             rospy.logdebug("Creating final wp")
             # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             # cv2.imwrite(filename, self.img)
-            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans) + ".jpg")
-            save_img(self.img_msg, filename)  # with resizing
+            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans))
+            save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
             rospy.logwarn("Stopping Mapping")
             time.sleep(2)
             self.isMapping = False

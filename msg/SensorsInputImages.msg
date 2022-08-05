@@ -1,5 +1,5 @@
 Header header
-Features[] map_features
-Features[] live_features
+ImageList map_images
+ImageList live_images
 float32[] map_distances
 float32[] map_transitions

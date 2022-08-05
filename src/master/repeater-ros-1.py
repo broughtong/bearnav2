@@ -11,34 +11,42 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList
-from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment
+from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList, Features
+from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment, Representations
 import numpy as np
 import ros_numpy
 
 
-def numpy_softmax(arr):
-    tmp = np.exp(arr) / np.sum(np.exp(arr))
-    return tmp
+def parse_camera_msg(msg):
+    img = ros_numpy.numpify(msg)
+    if "bgr" in msg.encoding:
+        img = img[..., ::-1]  # switch from bgr to rgb
+    img_msg = ros_numpy.msgify(Image, img, "rgb8")
+    return img_msg
 
 
 def load_map(mappath, images, distances, trans_hists):
     tmp = []
     for file in list(os.listdir(mappath)):
-        if file.endswith(".jpg"):
+        if file.endswith(".npy"):
             tmp.append(file[:-4].split("_"))
     rospy.logwarn(str(len(tmp)) + " images found in the map")
     tmp.sort(key=lambda x: float(x[0]))
     for idx, dist_turn in enumerate(tmp):
 
         distances.append(float(dist_turn[0]))
-        img = cv2.imread(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".jpg"))
-        img_msg = ros_numpy.msgify(Image, img, "rgb8")
-        images.append(img_msg)
-        rospy.logwarn("Loaded map image: " + dist_turn[0] + "_" + dist_turn[1] + str(".jpg"))
+        # img = cv2.imread(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".jpg"))
+        # img_msg = ros_numpy.msgify(Image, img, "rgb8")
+        feature = Features()
+        with open(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".npy"), 'rb') as fp:
+            array = np.load(fp, allow_pickle=False, fix_imports=False)
+            feature.shape = array.shape
+            feature.values = array.flatten()
+        rospy.logwarn(feature)
+        images.append(feature)
+        rospy.logwarn("Loaded feature: " + dist_turn[0] + "_" + dist_turn[1] + str(".bin"))
         if idx > 0:
             trans_hists.append(float(dist_turn[1]))
-
 
     rospy.logwarn("Whole map sucessfully loaded")
 
@@ -85,6 +93,10 @@ class ActionServer():
         rospy.logdebug("Connecting to sensors module")
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
 
+        rospy.wait_for_service("teach/get_repr")
+        self.get_repr_srv = rospy.ServiceProxy("teach/get_repr", Representations)
+        rospy.logwarn("Repeater reached the representation maker!")
+
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
         self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=1)
@@ -105,21 +117,24 @@ class ActionServer():
             return
         if len(self.map_images) > 0:
             # rospy.logwarn(self.map_distances)
+            # Load data from the map
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
             lower_bound = max(0, nearest_map_idx - self.map_publish_span)
             upper_bound = min(nearest_map_idx + self.map_publish_span + 1, len(self.map_distances))
-            map_imgs = ImageList(self.map_images[lower_bound:upper_bound])
+            map_imgs = self.map_images[lower_bound:upper_bound]
             distances = self.map_distances[lower_bound:upper_bound]
             if len(self.map_transitions) > 0:
                 transitions = self.map_transitions[lower_bound:upper_bound - 1]
             else:
                 transitions = []
-            live_imgs = ImageList([img_msg])
-            # rospy.logwarn(distances)
+            # Parse the live feed
+            img_msg = parse_camera_msg(img_msg)
+            live_imgs = self.get_repr_srv(ImageList([img_msg])).features
+            # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header = img_msg.header
-            sns_in.map_images = map_imgs
-            sns_in.live_images = live_imgs
+            sns_in.map_features = map_imgs
+            sns_in.live_features = live_imgs
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
 
