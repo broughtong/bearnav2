@@ -73,14 +73,7 @@ class CrossCorrelation(DisplacementEstimator):
 
     def image_to_tensor(self, imgs):
         desired_height = int(imgs[0].height * RESIZE_W / imgs[0].width)
-        image_list = [self.bgr_to_rgb(transforms.Resize(desired_height)(self.to_tensor(ros_numpy.numpify(img)).to(self.device)))
+        image_list = [transforms.Resize(desired_height)(self.to_tensor(ros_numpy.numpify(img)).to(self.device))
                       for img in imgs]
         stacked_tensor = t.stack(image_list)
         return stacked_tensor
-
-    def bgr_to_rgb(self, tensor):
-        # b = tensor[0, :, :].clone()
-        # r = tensor[2, :, :].clone()
-        # tensor[0, :, :] = r
-        # tensor[2, :, :] = b
-        return tensor
