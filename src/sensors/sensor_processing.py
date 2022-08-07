@@ -32,11 +32,11 @@ class BearnavClassic(SensorFusion):
             rospy.logwarn("Bearnav classic can process only one image")
         histogram = self.abs_align_est.displacement_message_callback(msg)
         self.alignment = (np.argmax(histogram) - np.size(histogram)//2) / (np.size(histogram)//2)
-        rospy.logwarn("Current displacement: " + str(self.alignment))
+        rospy.loginfo("Current displacement: " + str(self.alignment))
         self.publish_align()
 
     def _process_rel_distance(self, msg):
-        rospy.logwarn("This function is not available for this fusion class")
+        rospy.logerr("This function is not available for this fusion class")
         raise Exception("Bearnav Classic does not support relative distance")
 
     def _process_abs_distance(self, msg):
@@ -44,7 +44,7 @@ class BearnavClassic(SensorFusion):
         self.publish_dist()
 
     def _process_prob_distance(self, msg):
-        rospy.logwarn("This function is not available for this fusion class")
+        rospy.logerr("This function is not available for this fusion class")
         raise Exception("Bearnav Classic does not support probability of distances")
 
 
