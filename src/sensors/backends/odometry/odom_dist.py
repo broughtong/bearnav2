@@ -9,9 +9,9 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         super(OdometryAbsolute, self).__init__()
         self.supported_message_type = Odometry
         self.last_odom = None
-        rospy.logwarn("Odometry absolute distance estimator successfully initialized!")
+        rospy.loginfo("Odometry absolute distance estimator successfully initialized!")
 
-    def _abs_dist_message_callback(self, msg: Odometry):
+    def _abs_dist_message_callback(self, msg: Odometry) -> float:
         if self.last_odom is None:
             self.last_odom = msg
             return self._distance
@@ -22,11 +22,11 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         self.last_odom = msg
         return self._distance
 
-    def _set_dist(self, dist):
+    def _set_dist(self, dist) -> float:
         self.last_odom = None
         return dist
 
-    def health_check(self):
+    def health_check(self) -> bool:
         return True
 
 
@@ -36,9 +36,9 @@ class OdometryRelative(RelativeDistanceEstimator):
         super(OdometryRelative, self).__init__()
         self.supported_message_type = Odometry
         self.last_odom = None
-        rospy.logwarn("Odometry relative distance estimator successfully initialized!")
+        rospy.loginfo("Odometry relative distance estimator successfully initialized!")
 
-    def _rel_dist_message_callback(self, msg: Odometry):
+    def _rel_dist_message_callback(self, msg: Odometry) -> float:
         if self.last_odom is None:
             self.last_odom = msg
             return None
@@ -48,5 +48,5 @@ class OdometryRelative(RelativeDistanceEstimator):
         self.last_odom = msg
         return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
 
-    def health_check(self):
+    def health_check(self) -> bool:
         return True
