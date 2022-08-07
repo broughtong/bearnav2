@@ -12,20 +12,16 @@ import ros_numpy
 import ros
 from sensor_msgs.msg import Image
 
-PAD = 32
-PEAK_MULT = 0.5
-NEWTORK_DIVISION = 8.0
-RESIZE_W = 512
-
-
 class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
                  AbsoluteDistanceEstimator, RepresentationsCreator):
 
-    def __init__(self):
+    def __init__(self, padding: int=32, resize_w: int=512):
         super(SiameseCNN, self).__init__()
         self.supported_message_type = SensorsInput
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
         # init neural network
+        self.padding = padding
+        self.resize_w = resize_w
         model = get_parametrized_model(False, 3, 256, 0, 3, self.device)
         file_path = os.path.dirname(os.path.abspath(__file__))
         self.model = load_model(model, os.path.join(file_path, "./model_eunord.pt")).to(self.device).float()
@@ -34,7 +30,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         self.alignment_processing = False
         self.histograms = None
         self.distances_probs = None
-        rospy.logwarn("Siamese-NN displacement/distance estimator successfully initialized!")
+        rospy.loginfo("Siamese-NN displacement/distance estimator successfully initialized!")
 
     def _displacement_message_callback(self, msg: SensorsInput) -> List[np.ndarray]:
         self.alignment_processing = True
@@ -47,8 +43,9 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         return self.distances_probs
 
     def _abs_dist_message_callback(self, msg: SensorsInput) -> float:
+        # TODO: msg.distances seems obsolete. Should be msg.map_distances or msg.map_transitions
         if not len(msg.distances) > 0:
-            rospy.logwarn("You cannot assign absolute distance to ")
+            rospy.logerr("You cannot assign absolute distance to ")
             raise Exception("Absolute distant message callback for siamese network.")
         if not self.alignment_processing:
             self.process_msg(msg)
@@ -74,8 +71,8 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
 
     def process_msg(self, msg):
         hist = self.forward(msg.map_features, msg.live_features)
-        f = interpolate.interp1d(np.linspace(0, RESIZE_W, len(hist[0])), hist, kind="cubic")
-        interp_hist = f(np.arange(0, RESIZE_W))
+        f = interpolate.interp1d(np.linspace(0, self.resize_w, len(hist[0])), hist, kind="cubic")
+        interp_hist = f(np.arange(0, self.resize_w))
         self.distances_probs = np.max(interp_hist, axis=1)
         ret = []
         for hist in interp_hist:
@@ -90,18 +87,18 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         """
         tensor1 = self._from_feature(map_features)
         tensor2 = self._from_feature(live_features)
-        rospy.logwarn("aligning using NN " + str(tensor1.shape) + " to " + str(tensor2.shape) + " images")
+        rospy.logdebug("aligning using NN " + str(tensor1.shape) + " to " + str(tensor2.shape) + " images")
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             # only the crosscorrelation here since the representations were already calculated!
-            hists = self.model.match_corr(tensor1.float(), tensor2.float(), padding=PAD)[0, 0]
+            hists = self.model.match_corr(tensor1.float(), tensor2.float(), padding=self.padding)[0, 0]
             means = hists.mean(dim=-1, keepdim=True)
             stds = hists.std(dim=-1, keepdim=True)
             hists = (hists - means) / stds
         return hists.cpu().numpy()
 
     def image_to_tensor(self, imgs):
-        desired_height = int(imgs[0].height * RESIZE_W / imgs[0].width)
+        desired_height = int(imgs[0].height * self.resize_w / imgs[0].width)
         image_list = [transforms.Resize(desired_height)(self.to_tensor(ros_numpy.numpify(img)).to(self.device))
                       for img in imgs]
         stacked_tensor = t.stack(image_list)

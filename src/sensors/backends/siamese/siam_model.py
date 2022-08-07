@@ -1,5 +1,4 @@
 import random
-import torch
 import torch as t
 from torch.nn.functional import conv2d, conv1d
 import torch.nn as nn
@@ -8,6 +7,7 @@ from torch.nn import functional as F
 from copy import deepcopy
 import os
 import errno
+import rospy
 
 
 def create_conv_block(in_channel, out_channel, kernel, stride, padding, pooling, bn=True, relu=True,
@@ -202,7 +202,7 @@ def save_model(model, name, epoch, optimizer=None):
 def load_model(model, path, optimizer=None):
     checkpoint = t.load(path, map_location=t.device("cpu"))
     model.load_state_dict(checkpoint['model_state_dict'])
-    print("Loaded model at", path)
+    rospy.loginfo(f"Loaded model at {path}")
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         return model, optimizer

@@ -11,23 +11,21 @@ from scipy import interpolate
 import ros_numpy
 
 
-PAD = 32
-NEWTORK_DIVISION = 8.0
-RESIZE_W = int(512 // NEWTORK_DIVISION)
-
-
 class CrossCorrelation(DisplacementEstimator):
 
-    def __init__(self):
+    def __init__(self, padding: int=32, network_division: int=8, resize_w: int=512):
         super(CrossCorrelation, self).__init__()
         self.supported_message_type = SensorsInputImages
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
         # init neural network
+        self.padding = padding
+        self.network_division = network_division
+        self.resize_w = resize_w
         self.to_tensor = transforms.ToTensor()
         self.alignment_processing = False
         self.histograms = None
         self.distances_probs = None
-        rospy.logwarn("Cross correlation displacement estimator sucessfully initialized!")
+        rospy.loginfo("Cross correlation displacement estimator sucessfully initialized!")
 
     def _displacement_message_callback(self, msg: SensorsInputImages) -> List[np.ndarray]:
         self.alignment_processing = True
@@ -40,8 +38,8 @@ class CrossCorrelation(DisplacementEstimator):
     def process_msg(self, msg):
         # TODO: check if it's working for multiple map images
         hist = self.forward(msg.map_images.data, msg.live_images.data)      # not sure about .data here
-        f = interpolate.interp1d(np.linspace(0, int(RESIZE_W * NEWTORK_DIVISION), len(hist[0])), hist[0], kind="cubic")
-        interp_hist = f(np.arange(0, int(RESIZE_W * NEWTORK_DIVISION)))
+        f = interpolate.interp1d(np.linspace(0, self.resize_w, len(hist[0])), hist[0], kind="cubic")
+        interp_hist = f(np.arange(0, self.resize_w))
         zeros = np.zeros(np.size(interp_hist)//2)
         ret = np.concatenate([zeros, interp_hist, zeros])    # siam can do only -0.5 to 0.5 img so extend both sides by sth
         self.histograms = [ret]
@@ -53,10 +51,10 @@ class CrossCorrelation(DisplacementEstimator):
         """
         tensor1 = self.image_to_tensor(map_images)
         tensor2 = self.image_to_tensor(live_images)
-        rospy.logwarn("Aligning using crosscorr " + str(tensor1.shape[0]) + " to " + str(tensor2.shape[0]) + " images")
+        rospy.logdebug(f"Aligning using crosscorr {tensor1.shape[0]} to {tensor2.shape[0]} images")
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
-            hists = self._match_corr(tensor1, tensor2, padding=PAD).cpu().numpy()
+            hists = self._match_corr(tensor1, tensor2, padding=self.padding).cpu().numpy()
         return hists[0][0]
 
     def _match_corr(self, embed_ref, embed_srch, padding=None):
@@ -72,7 +70,7 @@ class CrossCorrelation(DisplacementEstimator):
         return match_map
 
     def image_to_tensor(self, imgs):
-        desired_height = int(imgs[0].height * RESIZE_W / imgs[0].width)
+        desired_height = int(imgs[0].height * int(self.resize_w // self.network_division) / imgs[0].width)
         image_list = [transforms.Resize(desired_height)(self.to_tensor(ros_numpy.numpify(img)).to(self.device))
                       for img in imgs]
         stacked_tensor = t.stack(image_list)

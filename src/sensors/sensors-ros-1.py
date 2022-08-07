@@ -8,6 +8,11 @@ from backends.siamese.siamese import SiameseCNN
 from backends.crosscorrelation.crosscorr import CrossCorrelation
 
 
+# Network hyperparameters
+PAD = 32
+NETWORK_DIVISION = 8.0
+RESIZE_W = 512
+
 def start_subscribes(fusion_class,
                      abs_align_topic, abs_dist_topic, rel_dist_topic, prob_dist_topic,
                      rel_align_service_name, repr_service_name):
@@ -46,8 +51,8 @@ if __name__ == '__main__':
     odom_topic = rospy.get_param("~odom_topic")
 
     # Choose sensor method
-    align_abs = SiameseCNN()
-    align_rel = CrossCorrelation()
+    align_abs = SiameseCNN(padding=PAD, resize_w=RESIZE_W)
+    align_rel = CrossCorrelation(padding=PAD, network_division=NETWORK_DIVISION, resize_w=RESIZE_W)
     dist_abs = OdometryAbsolute()
     dist_rel = OdometryRelative()
 
