@@ -48,7 +48,7 @@ class ActionServer:
         self.img_msg = None
         self.last_img_msg = None
         self.mapName = ""
-        self.mapStep = rospy.get_param("~map_step", default=1.0)
+        self.mapStep = 1.0
         self.nextStep = 0
         self.bag = None
         self.lastDistance = 0.0
@@ -109,6 +109,7 @@ class ActionServer:
             self.bag.write(topicName, msg)
 
     def imageCB(self, msg):
+        # TODO: sync with distance CB
         # save image on image shift
         self.img_msg = msg
         curr_dist = self.lastDistance
@@ -135,6 +136,7 @@ class ActionServer:
         self.checkShutdown()
 
     def distanceCB(self, msg):
+        # TODO sync with image CB
         # save image after traveled distance
 
         if self.isMapping == False or self.img_msg is None:
@@ -183,6 +185,10 @@ class ActionServer:
             self.img_msg = None
             self.last_img_msg = None
             self.distance_reset_srv(0.0)
+            self.mapStep = goal.mapStep
+            if self.mapStep <= 0.0:
+                rospy.logwarn("Record step is not positive number - changing to 1.0m")
+                self.mapStep = 1.0
             try:
                 os.mkdir(goal.mapName)
                 with open(goal.mapName + "/params", "w") as f:

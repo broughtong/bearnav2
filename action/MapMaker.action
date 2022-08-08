@@ -2,6 +2,7 @@
 bool saveImgsForViz
 string mapName
 bool start
+float32 mapStep
 ---
 #result definition
 bool success
