@@ -21,13 +21,12 @@ class DisplacementEstimator(ABC):
     def __init__(self, local_displacement: bool=False):
         self.supported_message_type = None  # this attrubute must be set
         if not self.health_check():
-            rospy.logwarn("Displacement estimator health check was not successful")
+            rospy.logerr("Displacement estimator health check was not successful")
             raise Exception("Displacement Estimator health check failed")
 
     def displacement_message_callback(self, msg: object) -> List[np.ndarray]:
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
-            rospy.logwarn("Incorrect type of message in displacement estimator" +
-                          str(type(msg)) + " vs " + str(self.supported_message_type))
+            rospy.logerr(f"Incorrect type of message in displacement estimator {type(msg)} vs {self.supported_message_type}")
             raise Exception("Wrong message type")
         return self._displacement_message_callback(msg)
 
@@ -52,13 +51,12 @@ class RelativeDistanceEstimator(ABC):
     def __init__(self):
         self.supported_message_type = None
         if not self.health_check():
-            rospy.logwarn("Relative distance estimator health check was not successful")
+            rospy.logerr("Relative distance estimator health check was not successful")
             raise Exception("Rel Dist Estimator health check failed")
 
     def rel_dist_message_callback(self, msg: object) -> float:
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
-            rospy.logwarn("Incorrect type of message in relative distance estimator" +
-                          str(type(msg)) + " vs " + str(self.supported_message_type))
+            rospy.logerr(f"Incorrect type of message in relative distance estimator {type(msg)} vs {self.supported_message_type}")
             raise Exception("Wrong message type")
         return self._rel_dist_message_callback(msg)
 
@@ -85,21 +83,20 @@ class AbsoluteDistanceEstimator(ABC):
         self.supported_message_type = None
         self._distance = None
         if not self.health_check():
-            rospy.logwarn("Absolute distance estimator health check was not successful")
+            rospy.logerr("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
 
     def abs_dist_message_callback(self, msg: object) -> float:
         if self._distance is None:
-            rospy.logwarn("If you want to use absolute distance sensor - you have to set the distance first!")
+            rospy.logerr("If you want to use absolute distance sensor - you have to set the distance first!")
             raise Exception("The distance must be set first")
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
-            rospy.logwarn("Incorrect type of message in absolute distance estimator" +
-                          str(type(msg)) + " vs " + str(self.supported_message_type))
+            rospy.logerr(f"Incorrect type of message in absolute distance estimator {type(msg)} vs {self.supported_message_type}")
             raise Exception("Wrong message type")
         return self._abs_dist_message_callback(msg)
 
     def set_dist(self, dist):
-        rospy.logwarn("Setting distance to: " + str(dist))
+        rospy.loginfo(f"Setting distance to: {dist}")
         self._distance = self._set_dist(dist)
 
     def _set_dist(self, dist):
@@ -128,16 +125,15 @@ class ProbabilityDistanceEstimator(ABC):
         self._distance = None
         self.supported_message_type = None
         if self.health_check():
-            rospy.logwarn("Absolute distance estimator health check was not successful")
+            rospy.logerr("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
 
     def prob_dist_message_callback(self, msg: object) -> List[float]:
         if self._distance is None:
-            rospy.logwarn("If you want to use absolute distance sensor - you have to set the distance first!")
+            rospy.logerr("If you want to use absolute distance sensor - you have to set the distance first!")
             raise Exception("The distance must be set first")
         if not isinstance(msg, self.supported_message_type) or self.supported_message_type is None:
-            rospy.logwarn("Incorrect type of message in probabilistic distance estimator" +
-                          str(type(msg)) + " vs " + str(self.supported_message_type))
+            rospy.logerr(f"Incorrect type of message in probabilistic distance estimator {type(msg)} vs {self.supported_message_type}")
             raise Exception("Wrong message type")
         return self._prob_dist_message_callback(msg)
 
@@ -198,7 +194,7 @@ class SensorFusion(ABC):
                  repr_creator: RepresentationsCreator = None):
 
         if type_prefix not in ["teach", "repeat"]:
-            rospy.logwarn("Fusion method must be created for teach or repeat phase")
+            rospy.logerr("Fusion method must be created for teach or repeat phase")
             raise Exception("Not properly initialized fusion method")
         self.type_prefix = type_prefix
 

@@ -48,7 +48,7 @@ class ActionServer:
         self.img_msg = None
         self.last_img_msg = None
         self.mapName = ""
-        self.mapStep = 1.0
+        self.mapStep = rospy.get_param("~map_step", default=1.0)
         self.nextStep = 0
         self.bag = None
         self.lastDistance = 0.0
@@ -62,12 +62,12 @@ class ActionServer:
         self.additionalTopics = self.additionalTopics.split(" ")
         self.additionalTopicSubscribers = []
         if self.additionalTopics[0] != "":
-            rospy.logwarn("Recording the following additional topics: " + str(self.additionalTopics))
+            rospy.loginfo(f"Recording the following additional topics: {self.additionalTopics}")
             for topic in self.additionalTopics:
                 msgType = rostopic.get_topic_class(topic)[0]
                 s = rospy.Subscriber(topic, msgType, self.miscCB, queue_size=1)
                 self.additionalTopicSubscribers.append(s)
-    
+
         rospy.loginfo("Waiting for services to become available...")
         rospy.wait_for_service("teach/set_dist")
         rospy.loginfo("Starting...")
@@ -105,8 +105,8 @@ class ActionServer:
     def miscCB(self, msg, args):
         if self.isMapping:
             topicName = args
-            rospy.logdebug("Adding misc from %s" % (topicName))
-            self.bag.write(topicName, msg) 
+            rospy.logdebug(f"Adding misc from {topicName}")
+            self.bag.write(topicName, msg)
 
     def imageCB(self, msg):
         # save image on image shift
@@ -151,7 +151,6 @@ class ActionServer:
             save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
             self.last_img_msg = self.img_msg
             # cv2.imwrite(filename, self.img)
-            rospy.logwarn("Image saved %s" % (filename))
 
         self.checkShutdown()
 
@@ -166,17 +165,15 @@ class ActionServer:
     def actionCB(self, goal):
 
         self.save_imgs = goal.saveImgsForViz
-
+        result = MapMakerResult()
         if self.img_msg is None:
             rospy.logerr("WARNING: no image coming through, ignoring")
-            result = MapMakerResult()
             result.success = False
             self.server.set_succeeded(result)
             return
 
         if goal.mapName == "":
             rospy.logwarn("Missing mapname, ignoring")
-            result = MapRepeaterResult()
             result.success = False
             self.server.set_succeeded(result)
             return
@@ -193,7 +190,6 @@ class ActionServer:
                     f.write("odomTopic: %s\n" % (self.joy_topic))
             except:
                 rospy.logwarn("Unable to create map directory, ignoring")
-                result = MapRepeaterResult()
                 result.success = False
                 self.server.set_succeeded(result)
                 return
@@ -203,6 +199,8 @@ class ActionServer:
             self.nextStep = 0.0
             self.lastDistance = 0.0
             self.isMapping = True
+            result.success = True
+            self.server.set_succeeded(result)
         else:
             rospy.logdebug("Creating final wp")
             # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
@@ -210,19 +208,22 @@ class ActionServer:
             filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans))
             save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
             rospy.logwarn("Stopping Mapping")
+            rospy.loginfo(f"Map saved under: '{os.path.join(os.path.expanduser('~'), '.ros', self.mapName)}'")
             time.sleep(2)
             self.isMapping = False
+            result.success = True
+            self.server.set_succeeded(result)
             self.bag.close()
-         
+
     def checkShutdown(self):
         if self.server.is_preempt_requested():
             self.shutdown()
 
     def shutdown(self):
         self.isMapping = False
-        if self.bag is not None: 
+        if self.bag is not None:
             self.bag.close()
-       
+
 if __name__ == '__main__':
     rospy.init_node("mapmaker_server")
     server = ActionServer()

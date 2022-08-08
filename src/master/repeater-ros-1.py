@@ -103,6 +103,7 @@ class ActionServer():
 
         rospy.logdebug("Starting repeater server")
         self.server = actionlib.SimpleActionServer("repeater", MapRepeaterAction, execute_cb=self.actionCB, auto_start=False)
+        self.server.register_preempt_callback(self.checkShutdown)
         self.server.start()
 
         rospy.logwarn("Repeater started, awaiting goal")
@@ -189,10 +190,9 @@ class ActionServer():
     def actionCB(self, goal):
 
         rospy.loginfo("New goal received")
-        
+        result = MapRepeaterResult()       
         if self.goalValid(goal) == False:
             rospy.logwarn("Ignoring invalid goal")
-            result = MapRepeaterResult()
             result.success = False
             self.server.set_succeeded(result)
             return
@@ -244,7 +244,6 @@ class ActionServer():
             self.replay_timewise(additionalPublishers)    # for timewise repeating
 
         # self.shutdown() only for sth
-        result = MapRepeaterResult()
         result.success = True
         self.server.set_succeeded(result)
          
