@@ -20,6 +20,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
         self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
         self.last_odom = msg
+        self.header = msg.header
         return self._distance
 
     def _set_dist(self, dist) -> float:

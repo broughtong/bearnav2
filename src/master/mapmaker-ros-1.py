@@ -15,6 +15,7 @@ from bearnav2.srv import SetDist, Alignment, Representations
 import numpy as np
 from copy import deepcopy
 import ros_numpy
+from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 
 TARGET_WIDTH = 512
@@ -43,7 +44,6 @@ class ActionServer:
 
     def __init__(self):
 
-        # TODO parametrize mapstep and curr trans in action message!
         self.isMapping = False
         self.img_msg = None
         self.last_img_msg = None
@@ -77,7 +77,6 @@ class ActionServer:
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
         self.distance_reset_srv(0.0)
         self.align_reset_srv(0.0)
-        self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=10)
 
         rospy.wait_for_service("teach/get_repr")
         self.get_repr_srv = rospy.ServiceProxy("teach/get_repr", Representations)
@@ -96,9 +95,17 @@ class ActionServer:
             self.local_align = rospy.ServiceProxy("teach/local_alignment", Alignment)
             rospy.logwarn("Local alignment service available for mapmaker")
 
+        # here it subscribes necessary topics
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
+        # self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
+        # self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=10)
+        # synchronize necessary topics!
+        cam_sub = Subscriber(self.camera_topic, Image)
+        distance_sub = Subscriber("teach/output_dist", SensorsOutput)
+        synced_topics = ApproximateTimeSynchronizer([cam_sub, distance_sub], queue_size=1, slop=0.2,
+                                                    allow_headerless=True)
+        synced_topics.registerCallback(self.distance_imgCB)
 
         rospy.logwarn("Mapmaker started, awaiting goal")
 
@@ -108,8 +115,42 @@ class ActionServer:
             rospy.logdebug(f"Adding misc from {topicName}")
             self.bag.write(topicName, msg)
 
+    def distance_imgCB(self, img_msg, dist_msg):
+        self.img_msg = img_msg
+        dist = dist_msg.output
+
+        if not self.isMapping:
+            return
+
+        # obtain displacement between prev and new image --------------------------------------
+        if self.visual_turn and self.last_img_msg is not None:
+            # create message
+            srv_msg = SensorsInputImages()
+            srv_msg.map_images = ImageList([self.last_img_msg])
+            srv_msg.live_images = ImageList([img_msg])
+
+            try:
+                resp1 = self.local_align(srv_msg)
+                hist = resp1.histograms[0].data
+                half_size = np.size(hist)/2.0
+                self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
+            except Exception as e:
+                rospy.logwarn("Service call failed: %s" % e)
+        else:
+            self.curr_trans = 0.0
+
+        # eventually save the image if conditions fulfilled ------------------------------------
+        if dist > self.nextStep or abs(self.curr_trans) > self.max_trans:
+            self.last_img_msg = img_msg
+            self.nextStep = dist + self.mapStep
+            filename = os.path.join(self.mapName, str(dist) + "_" + str(self.curr_trans))
+            save_img(img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
+            rospy.loginfo("Saved waypoint: " + filename)
+
+        self.checkShutdown()
+
+    """
     def imageCB(self, msg):
-        # TODO: sync with distance CB
         # save image on image shift
         self.img_msg = msg
         curr_dist = self.lastDistance
@@ -136,9 +177,7 @@ class ActionServer:
         self.checkShutdown()
 
     def distanceCB(self, msg):
-        # TODO sync with image CB
         # save image after traveled distance
-
         if self.isMapping == False or self.img_msg is None:
             return
         dist = msg.output
@@ -155,6 +194,7 @@ class ActionServer:
             # cv2.imwrite(filename, self.img)
 
         self.checkShutdown()
+    """
 
     def joyCB(self, msg):
         if self.isMapping:

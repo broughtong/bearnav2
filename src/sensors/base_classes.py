@@ -75,13 +75,14 @@ class RelativeDistanceEstimator(ABC):
 # TODO: absolute distance is probably subclass of probability distance, rework this into one class
 class AbsoluteDistanceEstimator(ABC):
     """
-    Abstract method for estimating the absolute distance traveled.
+    Abstract method for estimating the absolute distance traveled - needs also handle header because of synchronization
     Extend this to add new estimator, the main method which must be implemented is "_abs_dist_message_callback"
     """
 
     def __init__(self):
         self.supported_message_type = None
         self._distance = None
+        self.header = None
         if not self.health_check():
             rospy.logerr("Absolute distance estimator health check was not successful")
             raise Exception("Abs Dist Estimator health check failed")
@@ -203,6 +204,7 @@ class SensorFusion(ABC):
         self.set_distance = rospy.Service(type_prefix + "/set_dist", SetDist, self.set_distance)
         self.set_alignment = rospy.Service(type_prefix + "/set_align", SetDist, self.set_alignment)
 
+        self.header = None  # for time sync
         self.distance = None
         self.alignment = None
         self.distance_std = None
@@ -217,9 +219,11 @@ class SensorFusion(ABC):
     
     def publish_dist(self):
         """
-        publish distance as a float in meters
+        publish distance as a float in meters - we need always header for time synchronization!
         """
         out = SensorsOutput()
+        if self.header is not None:
+            out.header = self.header
         if self.distance is not None:
             out.output = self.distance
             out.output_uncertainty = self.distance_std

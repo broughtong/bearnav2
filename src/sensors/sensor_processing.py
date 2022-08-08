@@ -41,6 +41,8 @@ class BearnavClassic(SensorFusion):
 
     def _process_abs_distance(self, msg):
         self.distance = self.abs_dist_est.abs_dist_message_callback(msg)
+        # if we want to use this topic for recording we need the header for time sync
+        self.header = self.abs_dist_est.header
         self.publish_dist()
 
     def _process_prob_distance(self, msg):

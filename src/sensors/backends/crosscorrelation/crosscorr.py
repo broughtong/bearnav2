@@ -11,9 +11,12 @@ from scipy import interpolate
 import ros_numpy
 
 
+HEIGHT_TOLERANCE = 2
+
+
 class CrossCorrelation(DisplacementEstimator):
 
-    def __init__(self, padding: int=32, network_division: int=8, resize_w: int=512):
+    def __init__(self, padding: int = 32, network_division: int = 8, resize_w: int = 512):
         super(CrossCorrelation, self).__init__()
         self.supported_message_type = SensorsInputImages
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
@@ -63,7 +66,8 @@ class CrossCorrelation(DisplacementEstimator):
         b, c, h, w = embed_srch.shape
         _, _, h_ref, w_ref = embed_ref.shape
 
-        match_map = F.conv2d(F.pad(embed_srch.view(1, b * c, h, w), pad=(padding, padding, 1, 1), mode='circular'),
+        match_map = F.conv2d(F.pad(embed_srch.view(1, b * c, h, w),
+                                   pad=(padding, padding, HEIGHT_TOLERANCE, HEIGHT_TOLERANCE), mode='circular'),
                              embed_ref, groups=b)
 
         match_map = t.max(match_map.permute(1, 0, 2, 3), dim=2)[0].unsqueeze(2)

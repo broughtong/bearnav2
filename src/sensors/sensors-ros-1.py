@@ -10,7 +10,7 @@ from backends.crosscorrelation.crosscorr import CrossCorrelation
 
 # Network hyperparameters
 PAD = 32
-NETWORK_DIVISION = 8.0
+NETWORK_DIVISION = 8
 RESIZE_W = 512
 
 def start_subscribes(fusion_class,
@@ -57,6 +57,7 @@ if __name__ == '__main__':
     dist_rel = OdometryRelative()
 
     # Set here fusion method for teaching phase -------------------------------------------
+    # BearnavClassic is currently only supported
     teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs, align_rel)
     teach_handlers = start_subscribes(teach_fusion,
                                       "", odom_topic, "", "",
