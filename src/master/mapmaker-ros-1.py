@@ -25,19 +25,20 @@ def parse_camera_msg(msg):
     img = ros_numpy.numpify(msg)
     if "bgr" in msg.encoding:
         img = img[..., ::-1]  # switch from bgr to rgb
+        rospy.logwarn(img.shape)
     img_msg = ros_numpy.msgify(Image, img, "rgb8")
     return img_msg
 
 
 def save_img(img_msg, filename, save_img, repr_srv):
-    img_msg = parse_camera_msg(img_msg)
-    repr = repr_srv(ImageList([img_msg])).features[0]
+    new_img_msg = parse_camera_msg(img_msg)
+    repr = repr_srv(ImageList([new_img_msg])).features[0]
     np_repr = np.reshape(np.array(repr.values, dtype=np.float16), repr.shape)
     with open(filename + ".npy", 'wb') as fp:
         np.save(fp, np_repr, allow_pickle=False, fix_imports=False)
     if save_img:
-        img = ros_numpy.numpify(img_msg)
-        cv2.imwrite(filename + ".jpg", img)
+        img = ros_numpy.numpify(new_img_msg)
+        cv2.imwrite(filename + ".jpg", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
 class ActionServer:
@@ -57,6 +58,7 @@ class ActionServer:
         self.curr_trans = 0.0
         self.last_saved_dist = None
         self.save_imgs = False
+        self.cum_turn = 0.0
 
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
@@ -103,8 +105,7 @@ class ActionServer:
         # synchronize necessary topics!
         cam_sub = Subscriber(self.camera_topic, Image)
         distance_sub = Subscriber("teach/output_dist", SensorsOutput)
-        synced_topics = ApproximateTimeSynchronizer([cam_sub, distance_sub], queue_size=1, slop=0.2,
-                                                    allow_headerless=True)
+        synced_topics = ApproximateTimeSynchronizer([cam_sub, distance_sub], queue_size=1, slop=0.25)
         synced_topics.registerCallback(self.distance_imgCB)
 
         rospy.logwarn("Mapmaker started, awaiting goal")
@@ -118,6 +119,7 @@ class ActionServer:
     def distance_imgCB(self, img_msg, dist_msg):
         self.img_msg = img_msg
         dist = dist_msg.output
+        self.lastDistance = dist
 
         if not self.isMapping:
             return
@@ -134,18 +136,21 @@ class ActionServer:
                 hist = resp1.histograms[0].data
                 half_size = np.size(hist)/2.0
                 self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
+                self.cum_turn += self.curr_trans
             except Exception as e:
                 rospy.logwarn("Service call failed: %s" % e)
         else:
             self.curr_trans = 0.0
 
         # eventually save the image if conditions fulfilled ------------------------------------
-        if dist > self.nextStep or abs(self.curr_trans) > self.max_trans:
-            self.last_img_msg = img_msg
+        if dist > self.nextStep or abs(self.cum_turn) > self.max_trans:
             self.nextStep = dist + self.mapStep
-            filename = os.path.join(self.mapName, str(dist) + "_" + str(self.curr_trans))
+            filename = os.path.join(self.mapName, str(dist) + "_" + str(self.cum_turn))
             save_img(img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
+            self.cum_turn = 0.0
             rospy.loginfo("Saved waypoint: " + filename)
+
+        self.last_img_msg = img_msg
 
         self.checkShutdown()
 

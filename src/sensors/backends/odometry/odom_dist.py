@@ -25,6 +25,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
 
     def _set_dist(self, dist) -> float:
         self.last_odom = None
+        self._distance = 0.0
         return dist
 
     def health_check(self) -> bool:

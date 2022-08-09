@@ -95,7 +95,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             means = hists.mean(dim=-1, keepdim=True)
             stds = hists.std(dim=-1, keepdim=True)
             hists = (hists - means) / stds
-        return hists.cpu().numpy()
+        return np.flip(hists.cpu().numpy(), axis=-1)
 
     def image_to_tensor(self, imgs):
         desired_height = int(imgs[0].height * self.resize_w / imgs[0].width)

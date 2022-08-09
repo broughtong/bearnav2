@@ -42,9 +42,8 @@ def load_map(mappath, images, distances, trans_hists):
             array = np.load(fp, allow_pickle=False, fix_imports=False)
             feature.shape = array.shape
             feature.values = array.flatten()
-        rospy.logwarn(feature)
         images.append(feature)
-        rospy.logwarn("Loaded feature: " + dist_turn[0] + "_" + dist_turn[1] + str(".bin"))
+        rospy.loginfo("Loaded feature: " + dist_turn[0] + "_" + dist_turn[1] + str(".bin"))
         if idx > 0:
             trans_hists.append(float(dist_turn[1]))
 
@@ -139,6 +138,8 @@ class ActionServer():
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
 
+            rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
+
             self.sensors_pub.publish(sns_in)
 
             # DEBUGGING
@@ -203,7 +204,6 @@ class ActionServer():
 
         #set distance to zero
         rospy.logdebug("Resetting distnace and alignment")
-        self.distance_reset_srv(goal.startPos)
         self.align_reset_srv(0.0)
         self.endPosition = goal.endPos
         self.nextStep = 0
@@ -219,6 +219,7 @@ class ActionServer():
                                                              self.map_transitions))
         map_loader.start()
 
+        self.distance_reset_srv(goal.startPos)
         rospy.logwarn("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
@@ -322,10 +323,13 @@ class ActionServer():
 
     def play_closest_action(self):
         # TODO: Does not support additional topics
-        distance_to_pos = abs(self.curr_dist - self.action_dists)
-        closest_idx = np.argmin(distance_to_pos)
-        if self.isRepeating:
-            self.joy_pub.publish(self.actions[closest_idx])
+        if len(self.action_dists) > 0:
+            distance_to_pos = abs(self.curr_dist - self.action_dists)
+            closest_idx = np.argmin(distance_to_pos)
+            if self.isRepeating:
+                self.joy_pub.publish(self.actions[closest_idx])
+        else:
+            rospy.logwarn("No action available")
 
 
 if __name__ == '__main__':
