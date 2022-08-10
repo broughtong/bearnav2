@@ -82,8 +82,8 @@ class VisualOnly(SensorFusion):
         dists = msg.map_distances
         probs = self.prob_dist_est.prob_dist_message_callback(msg)
         # TODO: add some interpolation to more cleanly choose between actions - more fancy :)
-        self.distance = dists[np.argmax(probs)]
-        rospy.logwarn("Predicted dist: " + str(self.distance) + " and alignment: " + str(self.alignment))
+        self.distance = max(dists[np.argmax(probs)], 0.05)
+        rospy.loginfo("Predicted dist: " + str(self.distance) + " and alignment: " + str(self.alignment))
         self.publish_dist()
 
 
@@ -120,9 +120,10 @@ class PF2D(SensorFusion):
         dst = self.distance
         self.particles = np.transpose(np.ones((2, self.particles_num)).transpose() * np.array((dst, 0)) +\
                                       np.random.normal(loc=(0, 0), scale=var, size=(self.particles_num, 2)))
+        self.particles = self.particles - np.mean(self.particles, axis=-1, keepdims=True)
         self.last_image = None
         self._get_coords()
-        rospy.logwarn("Particles reinitialized at position " + str(self.distance) + "m" +
+        rospy.loginfo("Particles reinitialized at position " + str(self.distance) + "m" +
                       " with alignment " + str(self.alignment))
         return ret
 
@@ -145,12 +146,14 @@ class PF2D(SensorFusion):
             curr_img_diff = 0.0
         trans = np.array(msg.map_transitions)
         dists = np.array(msg.map_distances)
-        traveled = self.traveled_dist  # this is when odometry is slower than camera
+        traveled = self.traveled_dist  
+
         if len(hists) < 2 or len(trans) != len(hists) - 1 or len(dists) != len(hists) or len(trans) == 0:
             rospy.logwarn("Invalid input sizes for particle filter!")
             return
 
         if traveled == 0.0:
+            # this is when odometry is slower than camera
             rospy.logwarn("Odometry is significantly slower than camera! Dropping input!")
             return
 
@@ -171,7 +174,6 @@ class PF2D(SensorFusion):
         particle_prob = self._numpy_softmax(particle_prob)
         # choose best candidates and reduce the number of particles
         part_indices = np.arange(np.shape(self.particles)[1])
-        # TODO: maybe resampling with repetition would be better!
         chosen_indices = np.random.choice(part_indices, int(self.particles_num/self.particles_frac),
                                           p=particle_prob/np.sum(particle_prob))
         self.particles = self.particles[:, chosen_indices]
@@ -201,7 +203,7 @@ class PF2D(SensorFusion):
             trans_diff = np.array(trans_cumsum_per_particle * frac_per_particle)
 
             # particles are shifted in odometry processing - thus np.zeros
-            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), -curr_img_diff + trans_diff), axis=1)
+            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), curr_img_diff + trans_diff), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
                                                scale=(self.odom_error * traveled, self.align_error),
@@ -219,8 +221,8 @@ class PF2D(SensorFusion):
         if self.debug:
             particles_out = self.particles.flatten()
             self.particles_pub.publish(particles_out)
-            rospy.logwarn("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
-            rospy.logwarn("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
+            rospy.loginfo("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
+            rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
                           + " and " + str(np.mean(trans_diff)))
 
     def _process_rel_distance(self, msg):
@@ -250,6 +252,10 @@ class PF2D(SensorFusion):
 
     def _get_coords(self):
         coords = np.mean(self.particles, axis=1)
+        if coords[0] < 0.0:
+            # the estimated distance cannot really be less than 0.0 - fixing for action repeating
+            rospy.logwarn("Mean of particles is less than 0.0 - movin them forwards!")
+            self.particles[0, :] -= coords[0]
         stds = np.std(self.particles, axis=1)
         self.distance = coords[0]
         self.alignment = coords[1]

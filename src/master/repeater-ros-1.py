@@ -219,7 +219,6 @@ class ActionServer():
                                                              self.map_transitions))
         map_loader.start()
 
-        self.distance_reset_srv(goal.startPos)
         rospy.logwarn("Starting repeat")
         self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
         self.mapName = goal.mapName
@@ -234,7 +233,9 @@ class ActionServer():
                 topicType = roslib.message.get_message_class(topicType)
                 additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1) 
 
-        time.sleep(5)       # waiting till some map images are parsed
+        self.distance_reset_srv(goal.startPos)
+        self.curr_dist = goal.startPos
+        time.sleep(2)       # waiting till some map images are parsed
         self.isRepeating = True
         # kick into the robot at the beggining:
         rospy.loginfo("Repeating started!")

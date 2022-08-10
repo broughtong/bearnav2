@@ -71,7 +71,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
 
     def process_msg(self, msg):
         hist = self.forward(msg.map_features, msg.live_features)
-        f = interpolate.interp1d(np.linspace(0, self.resize_w, len(hist[0])), hist, kind="cubic")
+        f = interpolate.interp1d(np.linspace(0, self.resize_w, hist.shape[-1]), hist, kind="cubic")
         interp_hist = f(np.arange(0, self.resize_w))
         self.distances_probs = np.max(interp_hist, axis=1)
         ret = []
@@ -87,14 +87,13 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         """
         tensor1 = self._from_feature(map_features)
         tensor2 = self._from_feature(live_features)
-        rospy.logdebug("aligning using NN " + str(tensor1.shape) + " to " + str(tensor2.shape) + " images")
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             # only the crosscorrelation here since the representations were already calculated!
-            hists = self.model.match_corr(tensor1.float(), tensor2.float(), padding=self.padding)[0, 0]
-            means = hists.mean(dim=-1, keepdim=True)
-            stds = hists.std(dim=-1, keepdim=True)
-            hists = (hists - means) / stds
+            hists = self.model.match_corr(tensor1.float(), tensor2.float(), padding=self.padding)[:, 0, 0]
+            mean = hists.mean()
+            std = hists.std()
+            hists = (hists - mean) / std
         return np.flip(hists.cpu().numpy(), axis=-1)
 
     def image_to_tensor(self, imgs):
