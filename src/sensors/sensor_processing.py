@@ -193,6 +193,8 @@ class PF2D(SensorFusion):
         dists_diffs = np.diff(dists) + 0.0001 # add one milimeter to avoid numeric issues
         # if traveled > 0.03:
         traveled_fracs = traveled / dists_diffs
+        traveled_fracs = np.minimum(traveled_fracs, np.ones(traveled_fracs.shape) * 0.5)
+        rospy.loginfo("traveled:" + str(traveled_fracs))
         # else:
             # hack for heavy turning on spot - sometimes traveled fracs can be very big
         #     rospy.logwarn("Too short distance traveled during turn - cannot interpolate")
@@ -270,7 +272,6 @@ class PF2D(SensorFusion):
         self.alignment_std = stds[1]
 
     def _diff_from_hist(self, hist):
-        rospy.loginfo(hist)
         half_size = np.size(hist) / 2.0
         curr_img_diff = ((np.argmax(hist) - (np.size(hist) // 2.0)) / half_size)
         return curr_img_diff
