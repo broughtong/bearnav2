@@ -146,15 +146,16 @@ class PF2D(SensorFusion):
             curr_img_diff = 0.0
         trans = np.array(msg.map_transitions)
         dists = np.array(msg.map_distances)
-        traveled = self.traveled_dist  
+        # self.traveled_dist += abs(curr_img_diff)
+        traveled = self.traveled_dist
 
         if len(hists) < 2 or len(trans) != len(hists) - 1 or len(dists) != len(hists) or len(trans) == 0:
             rospy.logwarn("Invalid input sizes for particle filter!")
             return
 
-        if traveled == 0.0:
+        if traveled == 0.0 and curr_img_diff == 0.0:
             # this is when odometry is slower than camera
-            rospy.logwarn("Odometry is significantly slower than camera! Dropping input!")
+            rospy.logwarn("Robot is not moving - particle filter is dropping input!")
             return
 
         # sensor step -------------------------------------------------------------------------------
@@ -189,8 +190,14 @@ class PF2D(SensorFusion):
         p_distances = np.matrix(self.particles[0, :])
         # rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
         closest_transition = np.transpose(np.clip(np.argmin(np.abs(mat_dists - p_distances), axis=0), 0, len(dists) - 2))
-        dists_diffs = np.diff(dists)
-        traveled_fracs = traveled / dists_diffs
+        dists_diffs = np.diff(dists) + 0.0001 # add one milimeter to avoid numeric issues
+        if traveled > 0.03:
+            traveled_fracs = traveled / dists_diffs
+        else:
+            # hack for heavy turning on spot - sometimes traveled fracs can be very big
+            rospy.logwarn("Too short distance traveled during turn - cannot interpolate")
+            trans[:] = -curr_img_diff
+            traveled_fracs = np.ones(dists_diffs.shape)
         # rospy.logwarn(str(np.mean(closest_transition)) + " +- " + str(np.std(closest_transition)) + " " + str(np.shape(closest_transition)))
         trans_cumsum_per_particle = trans[closest_transition]
         frac_per_particle = traveled_fracs[closest_transition]
@@ -255,7 +262,7 @@ class PF2D(SensorFusion):
         if coords[0] < 0.0:
             # the estimated distance cannot really be less than 0.0 - fixing for action repeating
             rospy.logwarn("Mean of particles is less than 0.0 - movin them forwards!")
-            self.particles[0, :] -= coords[0]
+            self.particles[0, :] -= coords[0] - 0.01 # add one centimeter for numeric issues
         stds = np.std(self.particles, axis=1)
         self.distance = coords[0]
         self.alignment = coords[1]
