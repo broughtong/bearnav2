@@ -19,9 +19,11 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
         self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+        # add very slight distance during turning to avoid similar images
+        dturn = (self.last_odom.pose.pose.orientation.z - msg.pose.pose.orientation.z) / 300.0
         self.last_odom = msg
         self.header = msg.header
-        return self._distance
+        return self._distance + abs(dturn)
 
     def _set_dist(self, dist) -> float:
         self.last_odom = None
@@ -47,8 +49,10 @@ class OdometryRelative(RelativeDistanceEstimator):
         dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
+        # add very slight distance during turning to avoid similar images
+        dturn = (self.last_odom.pose.pose.orientation.z - msg.pose.pose.orientation.z) / 300.0
         self.last_odom = msg
-        return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+        return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5  + abs(dturn)
 
     def health_check(self) -> bool:
         return True

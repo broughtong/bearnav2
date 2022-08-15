@@ -25,7 +25,6 @@ def parse_camera_msg(msg):
     img = ros_numpy.numpify(msg)
     if "bgr" in msg.encoding:
         img = img[..., ::-1]  # switch from bgr to rgb
-        rospy.logwarn(img.shape)
     img_msg = ros_numpy.msgify(Image, img, "rgb8")
     return img_msg
 
