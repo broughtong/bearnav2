@@ -17,10 +17,10 @@ imgABuf = None
 
 def callbackA(msg):
     global imgABuf
-    print("got_map")
     imgABuf = br.imgmsg_to_cv2(msg)
 
 def callbackB(msg):
+    rospy.logwarn("Live image recvd")
 
     if imgABuf is None:
         rospy.logwarn("Aligner still awaiting map image!")
@@ -42,8 +42,7 @@ def config_cb(config, level):
     #print(config.feature_type)
     #rospy.logwarn(config.feature_type)
     aligner.method = config.feature_type
-    aligner.method = "SIAM"
-    print(aligner.method)
+    aligner.method = "ORB"
     return config
 
 if __name__ == "__main__":
@@ -52,11 +51,11 @@ if __name__ == "__main__":
     aligner = alignment.Alignment()
     srv = Server(AlignmentConfig, config_cb)
 
-    pub = rospy.Publisher("alignment/output", Alignment, queue_size=0)
-    pub_hist = rospy.Publisher("histogram", FloatList, queue_size=0)
+    pub = rospy.Publisher("alignment/output", Alignment, queue_size=1)
+    pub_hist = rospy.Publisher("histogram", FloatList, queue_size=1)
 
-    rospy.Subscriber("alignment/inputCurrent", Image, callbackB, queue_size=1)
-    rospy.Subscriber("alignment/inputMap", Image, callbackA, queue_size=1)
+    rospy.Subscriber("alignment/inputCurrent", Image, callbackB, queue_size=1, buff_size=20000000)
+    rospy.Subscriber("alignment/inputMap", Image, callbackA, queue_size=1, buff_size=20000000)
 
     rospy.logdebug("Aligner Ready...")
     rospy.spin()

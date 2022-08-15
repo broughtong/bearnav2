@@ -23,7 +23,7 @@ class ActionServer():
         self.isMapping = False
         self.img = None
         self.mapName = ""
-        self.mapStep = 1.0
+        self.mapStep = 0.5
         self.nextStep = 0
         self.bag = None
         self.lastDistance = None
@@ -45,15 +45,15 @@ class ActionServer():
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("set_dist", SetDist)
         self.distance_reset_srv(0)
-        self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB, queue_size=1)
+        self.distance_sub = rospy.Subscriber("distance", Float64, self.distanceCB, queue_size=100, buff_size=20000000)
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
 
         rospy.logdebug("Subscibing to commands")
         self.joy_topic = rospy.get_param("~cmd_vel_topic")
-        self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB, queue_size=1)
+        self.joy_sub = rospy.Subscriber(self.joy_topic, Twist, self.joyCB, queue_size=100, buff_size=20000000)
 
         rospy.logdebug("Starting mapmaker server")
         self.server = actionlib.SimpleActionServer("mapmaker", MapMakerAction, execute_cb=self.actionCB, auto_start=False)

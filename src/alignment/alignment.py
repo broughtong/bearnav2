@@ -11,7 +11,7 @@ from backends import traditional
 PAD = 32
 PEAK_MULT = 0.5
 NEWTORK_DIVISION = 8.0
-RESIZE_H = 320
+RESIZE_H = 384
 RESIZE_W = 512
 
 
@@ -19,7 +19,7 @@ class Alignment:
 
     def __init__(self):
 
-        self.method = "SIAM"
+        self.method = "ORB"
         self.traditionalMethods = ["SIFT", "SURF", "KAZE", "AKAZE", "BRISK", "ORB"]
         rospy.logwarn(self.method) 
         if self.method == "SIAM":
@@ -38,9 +38,10 @@ class Alignment:
 
     def process(self, imgA, imgB):
 
-        #rospy.logwarn("recieved pair of imgs")
+        rospy.logwarn("recieved pair of imgs")
         peak, uncertainty = 0, 0
         hist = []
+        self.method = "ORB"
 
         if self.method in self.traditionalMethods: 
             from backends import traditional
@@ -65,13 +66,13 @@ class Alignment:
                 yVals.append(h[x])
             hist = yVals
 
-            print(peak, n)
             rospy.logwarn("===")
             rospy.logwarn(peak)
             rospy.logwarn(n)
 
-            if n < 10:
+            if n < 20:
                 peak = 0
+            return -peak, 0, hist
 
         elif self.method == "VGG":
             from backends import vgg

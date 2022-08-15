@@ -43,17 +43,17 @@ class ActionServer():
 
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1)
+        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
 
         rospy.logdebug("Connecting to alignment module")
         self.al_sub = rospy.Subscriber("alignment/output", Alignment, self.alignCB)
         self.al_1_pub = rospy.Publisher("alignment/inputCurrent", Image, queue_size=1)
         self.al_2_pub = rospy.Publisher("alignment/inputMap", Image, queue_size=1)
-        self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=0)
+        self.al_pub = rospy.Publisher("correction_cmd", Alignment, queue_size=1)
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
-        self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=0)
+        self.joy_pub = rospy.Publisher(self.joy_topic, Twist, queue_size=1)
 
         rospy.logdebug("Starting repeater server")
         self.server = actionlib.SimpleActionServer("repeater", MapRepeaterAction, execute_cb=self.actionCB, auto_start=False)
@@ -89,7 +89,7 @@ class ActionServer():
                 closestFilename = filename
 
         fn = os.path.join(self.mapName, closestFilename + ".jpg")
-        rospy.logwarn("Opening file: %s dist %f" % (fn, dist))
+        #rospy.logwarn("Opening file: %s dist %f" % (fn, dist))
         img = cv2.imread(fn)
         msg = self.br.cv2_to_imgmsg(img)
         self.al_2_pub.publish(msg)
@@ -154,6 +154,7 @@ class ActionServer():
         self.parseParams(os.path.join(goal.mapName, "params"))
         
         #get file list
+        self.fileList = []
         allFiles = []
         for files in os.walk(goal.mapName):
             allFiles = files[2]
