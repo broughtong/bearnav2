@@ -191,13 +191,13 @@ class PF2D(SensorFusion):
         # rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
         closest_transition = np.transpose(np.clip(np.argmin(np.abs(mat_dists - p_distances), axis=0), 0, len(dists) - 2))
         dists_diffs = np.diff(dists) + 0.0001 # add one milimeter to avoid numeric issues
-        if traveled > 0.03:
-            traveled_fracs = traveled / dists_diffs
-        else:
+        # if traveled > 0.03:
+        traveled_fracs = traveled / dists_diffs
+        # else:
             # hack for heavy turning on spot - sometimes traveled fracs can be very big
-            rospy.logwarn("Too short distance traveled during turn - cannot interpolate")
-            trans[:] = -curr_img_diff
-            traveled_fracs = np.ones(dists_diffs.shape)
+        #     rospy.logwarn("Too short distance traveled during turn - cannot interpolate")
+        #     trans[:] = -curr_img_diff
+        #     traveled_fracs = np.ones(dists_diffs.shape)
         # rospy.logwarn(str(np.mean(closest_transition)) + " +- " + str(np.std(closest_transition)) + " " + str(np.shape(closest_transition)))
         trans_cumsum_per_particle = trans[closest_transition]
         frac_per_particle = traveled_fracs[closest_transition]
@@ -270,6 +270,7 @@ class PF2D(SensorFusion):
         self.alignment_std = stds[1]
 
     def _diff_from_hist(self, hist):
+        rospy.loginfo(hist)
         half_size = np.size(hist) / 2.0
         curr_img_diff = ((np.argmax(hist) - (np.size(hist) // 2.0)) / half_size)
         return curr_img_diff
