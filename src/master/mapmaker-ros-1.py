@@ -30,6 +30,8 @@ def parse_camera_msg(msg):
 
 
 def save_img(img_msg, filename, save_img, repr_srv):
+    time_str = str(img_msg.stamp.secs)[-4:] + str(img_msg.stamp.nsecs)[:4]
+    filename = filename + "_" + time_str
     new_img_msg = parse_camera_msg(img_msg)
     repr = repr_srv(ImageList([new_img_msg])).features[0]
     np_repr = np.reshape(np.array(repr.values, dtype=np.float16), repr.shape)

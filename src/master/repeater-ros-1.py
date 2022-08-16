@@ -25,27 +25,30 @@ def parse_camera_msg(msg):
     return img_msg
 
 
-def load_map(mappath, images, distances, trans_hists):
+def load_map(mappath, images, distances, trans, times):
     tmp = []
     for file in list(os.listdir(mappath)):
         if file.endswith(".npy"):
             tmp.append(file[:-4].split("_"))
     rospy.logwarn(str(len(tmp)) + " images found in the map")
     tmp.sort(key=lambda x: float(x[0]))
-    for idx, dist_turn in enumerate(tmp):
+    last_time = None
+    for idx, dist_turn_time in enumerate(tmp):
 
-        distances.append(float(dist_turn[0]))
-        # img = cv2.imread(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".jpg"))
+        distances.append(float(dist_turn_time[0]))
+        # img = cv2.imread(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + ".jpg"))
         # img_msg = ros_numpy.msgify(Image, img, "rgb8")
         feature = Features()
-        with open(os.path.join(mappath, dist_turn[0] + "_" + dist_turn[1] + ".npy"), 'rb') as fp:
+        with open(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + ".npy"), 'rb') as fp:
             array = np.load(fp, allow_pickle=False, fix_imports=False)
             feature.shape = array.shape
             feature.values = array.flatten()
         images.append(feature)
-        rospy.loginfo("Loaded feature: " + dist_turn[0] + "_" + dist_turn[1] + str(".bin"))
+        rospy.loginfo("Loaded feature: " + dist_turn_time[0] + "_" + dist_turn_time[1] + "_" + dist_turn_time[2] + str(".npy"))
         if idx > 0:
-            trans_hists.append(float(dist_turn[1]))
+            trans.append(float(dist_turn_time[1]))
+            times.append(int(dist_turn_time[2]) - int(last_time))
+        last_time = dist_turn_time[2]
 
     rospy.logwarn("Whole map sucessfully loaded")
 
@@ -68,6 +71,7 @@ class ActionServer():
         self.map_images = []
         self.map_distances = []
         self.action_dists = None
+        self.map_times = []
         self.actions = []
         self.map_publish_span = 1
         self.map_transitions = []
@@ -125,8 +129,10 @@ class ActionServer():
             distances = self.map_distances[lower_bound:upper_bound]
             if len(self.map_transitions) > 0:
                 transitions = self.map_transitions[lower_bound:upper_bound - 1]
+                time_trans = self.map_times[lower_bound:upper_bound - 1]
             else:
                 transitions = []
+                time_trans = []
             # Parse the live feed
             img_msg = parse_camera_msg(img_msg)
             live_imgs = self.get_repr_srv(ImageList([img_msg])).features
@@ -137,6 +143,7 @@ class ActionServer():
             sns_in.live_features = live_imgs
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
+            sns_in.time_transitions = time_trans
 
             rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
 
@@ -216,7 +223,7 @@ class ActionServer():
         self.map_transitions = []
 
         map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances,
-                                                             self.map_transitions))
+                                                             self.map_transitions, self.map_times))
         map_loader.start()
 
         rospy.logwarn("Starting repeat")
@@ -316,6 +323,7 @@ class ActionServer():
     def parse_rosbag(self):
         rospy.logwarn("Starting to parse the actions")
         self.action_dists = []
+        self.action_times = []
         for topic, msg, t in self.bag.read_messages(topics=["recorded_actions"]):
             self.action_dists.append(float(msg.distance))
             self.actions.append(msg.twist)

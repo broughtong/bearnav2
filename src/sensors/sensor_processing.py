@@ -107,6 +107,7 @@ class PF2D(SensorFusion):
         self.last_image = None
         self.last_odom = None
         self.particles = None
+        self.last_time = None
         self.traveled_dist = 0.0
 
         # For debugging
@@ -141,11 +142,15 @@ class PF2D(SensorFusion):
             hists = out[:-1]
             live_hist = out[-1]
             curr_img_diff = self._diff_from_hist(live_hist)
+            curr_time = int(str(msg.header.stamp.secs)[-4:] + str(msg.header.stamp.nsecs)[:4])
+            curr_time_diff = curr_time - self.last_time
         else:
             hists = np.array(self.abs_align_est.displacement_message_callback(msg))
             curr_img_diff = 0.0
+            curr_time_diff = 0.0
         trans = np.array(msg.map_transitions)
         dists = np.array(msg.map_distances)
+        time_diffs = np.array(msg.time_transitions)
         # self.traveled_dist += abs(curr_img_diff)
         traveled = self.traveled_dist
 
@@ -153,9 +158,9 @@ class PF2D(SensorFusion):
             rospy.logwarn("Invalid input sizes for particle filter!")
             return
 
-        if traveled == 0.0 and curr_img_diff == 0.0:
+        if traveled < 0.01 and curr_img_diff == 0.001:
             # this is when odometry is slower than camera
-            rospy.logwarn("Robot is not moving - particle filter is dropping input!")
+            rospy.logwarn("Not enough movement detected for particle filter update!")
             return
 
         # sensor step -------------------------------------------------------------------------------
@@ -180,10 +185,6 @@ class PF2D(SensorFusion):
         self.particles = self.particles[:, chosen_indices]
 
         # motion step --------------------------------------------------------------------------------
-        # if self.last_image is not None:
-        #     curr_img_diff = self._get_rel_alignment(msg.live_images)
-        # else:
-        #     curr_img_diff = 0
 
         # get map transition for each particle
         mat_dists = np.transpose(np.matrix(dists))
@@ -191,16 +192,10 @@ class PF2D(SensorFusion):
         # rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
         closest_transition = np.transpose(np.clip(np.argmin(np.abs(mat_dists - p_distances), axis=0), 0, len(dists) - 2))
         dists_diffs = np.diff(dists) + 0.0001 # add one milimeter to avoid numeric issues
-        # if traveled > 0.03:
-        traveled_fracs = traveled / dists_diffs
-        traveled_fracs = np.minimum(traveled_fracs, np.ones(traveled_fracs.shape) * 0.5)
-        rospy.loginfo("traveled:" + str(traveled_fracs))
-        # else:
-            # hack for heavy turning on spot - sometimes traveled fracs can be very big
-        #     rospy.logwarn("Too short distance traveled during turn - cannot interpolate")
-        #     trans[:] = -curr_img_diff
-        #     traveled_fracs = np.ones(dists_diffs.shape)
-        # rospy.logwarn(str(np.mean(closest_transition)) + " +- " + str(np.std(closest_transition)) + " " + str(np.shape(closest_transition)))
+
+        traveled_fracs = float(curr_time_diff) / time_diffs
+        rospy.loginfo("traveled fracs:" + str(traveled_fracs))
+
         trans_cumsum_per_particle = trans[closest_transition]
         frac_per_particle = traveled_fracs[closest_transition]
         # generate new particles
@@ -222,6 +217,7 @@ class PF2D(SensorFusion):
         self.particles = np.concatenate(out).transpose()
 
         self.last_image = msg.live_features
+        self.last_time = int(str(msg.header.stamp.secs)[-4:] + str(msg.header.stamp.nsecs)[:4])
         self.traveled_dist = 0.0
         self._get_coords()
         self.publish_align()
@@ -263,8 +259,8 @@ class PF2D(SensorFusion):
         coords = np.mean(self.particles, axis=1)
         if coords[0] < 0.0:
             # the estimated distance cannot really be less than 0.0 - fixing for action repeating
-            rospy.logwarn("Mean of particles is less than 0.0 - movin them forwards!")
-            self.particles[0, :] -= coords[0] - 0.01 # add one centimeter for numeric issues
+            rospy.logwarn("Mean of particles is less than 0.0 - moving them forwards!")
+            self.particles[0, :] -= coords[0] - 0.01  # add one centimeter for numeric issues
         stds = np.std(self.particles, axis=1)
         self.distance = coords[0]
         self.alignment = coords[1]
@@ -276,6 +272,7 @@ class PF2D(SensorFusion):
         curr_img_diff = ((np.argmax(hist) - (np.size(hist) // 2.0)) / half_size)
         return curr_img_diff
 
+    """
     def _get_rel_alignment(self, live_imgs: ImageList):
         rel_msg = SensorsInput()
         rel_msg.live_images = live_imgs
@@ -286,3 +283,4 @@ class PF2D(SensorFusion):
         curr_img_diff = self._diff_from_hist(hists[0])
         rospy.logwarn("curr img diff: " + str(curr_img_diff))
         return curr_img_diff
+    """
