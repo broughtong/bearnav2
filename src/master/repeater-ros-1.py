@@ -39,7 +39,7 @@ def load_map(mappath, images, distances, trans, times):
         # img = cv2.imread(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + ".jpg"))
         # img_msg = ros_numpy.msgify(Image, img, "rgb8")
         feature = Features()
-        with open(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + ".npy"), 'rb') as fp:
+        with open(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + "_" + dist_turn_time[2] + ".npy"), 'rb') as fp:
             array = np.load(fp, allow_pickle=False, fix_imports=False)
             feature.shape = array.shape
             feature.values = array.flatten()
@@ -49,7 +49,7 @@ def load_map(mappath, images, distances, trans, times):
             trans.append(float(dist_turn_time[1]))
             times.append(int(dist_turn_time[2]) - int(last_time))
         last_time = dist_turn_time[2]
-
+    times[-1] = times[-2]  # to avoid very long period before map end
     rospy.logwarn("Whole map sucessfully loaded")
 
 
@@ -77,6 +77,7 @@ class ActionServer():
         self.map_transitions = []
         self.use_distances = False
         self.distance_finish_offset = 0.2
+        self.last_nearest_idx = 0
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -117,12 +118,16 @@ class ActionServer():
 
     def pubSensorsInput(self, img_msg):
         self.img = img_msg
+        time_now = rospy.Time.now()
         if not self.isRepeating:
             return
         if len(self.map_images) > 0:
             # rospy.logwarn(self.map_distances)
             # Load data from the map
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
+            rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
+            # allow only move in map by one image per iteration
+            # nearest_map_idx = self.last_nearest_idx + np.sign(nearest_map_idx - self.last_nearest_idx)
             lower_bound = max(0, nearest_map_idx - self.map_publish_span)
             upper_bound = min(nearest_map_idx + self.map_publish_span + 1, len(self.map_distances))
             map_imgs = self.map_images[lower_bound:upper_bound]
@@ -139,16 +144,16 @@ class ActionServer():
             # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header = img_msg.header
+            sns_in.header.stamp = time_now 
             sns_in.map_features = map_imgs
             sns_in.live_features = live_imgs
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
 
-            rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
-
             self.sensors_pub.publish(sns_in)
-
+            self.last_nearest_idx = nearest_map_idx
+            
             # DEBUGGING
             # self.debug_map_img.publish(self.map_images[nearest_map_idx])
 
@@ -221,6 +226,7 @@ class ActionServer():
         self.action_dists = None
         self.actions = []
         self.map_transitions = []
+        self.last_closest_idx = 0
 
         map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances,
                                                              self.map_transitions, self.map_times))
@@ -335,6 +341,7 @@ class ActionServer():
         if len(self.action_dists) > 0:
             distance_to_pos = abs(self.curr_dist - self.action_dists)
             closest_idx = np.argmin(distance_to_pos)
+            rospy.loginfo("replaying action at: " + str(closest_idx))
             if self.isRepeating:
                 self.joy_pub.publish(self.actions[closest_idx])
         else:

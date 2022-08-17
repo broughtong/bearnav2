@@ -11,6 +11,7 @@ from scipy import interpolate
 import ros_numpy
 import ros
 from sensor_msgs.msg import Image
+# from torch2trt import torch2trt
 
 class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
                  AbsoluteDistanceEstimator, RepresentationsCreator):
@@ -19,6 +20,8 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         super(SiameseCNN, self).__init__()
         self.supported_message_type = SensorsInput
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
+        rospy.logwarn("Neural net device " + str(self.device))
+        
         # init neural network
         self.padding = padding
         self.resize_w = resize_w
@@ -26,6 +29,12 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         file_path = os.path.dirname(os.path.abspath(__file__))
         self.model = load_model(model, os.path.join(file_path, "./model_eunord.pt")).to(self.device).float()
         self.model.eval()
+
+        if self.device == t.device("cuda"):
+            rospy.loginfo("speeding up neural network")
+            tmp = t.ones((1, 3, 320, 512)).cuda().float()
+            # self.model.backbone = torch2trt(self.model.backbone, [tmp])
+
         self.to_tensor = transforms.ToTensor()
         self.alignment_processing = False
         self.histograms = None
@@ -57,7 +66,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
     def _to_feature(self, msg: Image) -> Features:
         with t.no_grad():
             tensor_in = self.image_to_tensor(msg.data)
-            reprs = self.model.get_repr(tensor_in)
+            reprs = self.model.get_repr(tensor_in.float())
             ret_features = []
             for repr in reprs:
                 f = Features()
@@ -94,6 +103,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             mean = hists.mean()
             std = hists.std()
             hists = (hists - mean) / std
+            hists = t.sigmoid(hists)
         return np.flip(hists.cpu().numpy(), axis=-1)
 
     def image_to_tensor(self, imgs):

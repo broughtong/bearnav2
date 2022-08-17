@@ -30,7 +30,7 @@ def parse_camera_msg(msg):
 
 
 def save_img(img_msg, filename, save_img, repr_srv):
-    time_str = str(img_msg.stamp.secs)[-4:] + str(img_msg.stamp.nsecs)[:4]
+    time_str = str(img_msg.header.stamp.secs).zfill(10)[-4:] + str(img_msg.header.stamp.nsecs).zfill(9)[:4]
     filename = filename + "_" + time_str
     new_img_msg = parse_camera_msg(img_msg)
     repr = repr_srv(ImageList([new_img_msg])).features[0]
@@ -148,59 +148,13 @@ class ActionServer:
             self.nextStep = dist + self.mapStep
             filename = os.path.join(self.mapName, str(dist) + "_" + str(self.cum_turn))
             save_img(img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
+            rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.cum_turn))
             self.cum_turn = 0.0
-            rospy.loginfo("Saved waypoint: " + filename)
 
         self.last_img_msg = img_msg
 
         self.checkShutdown()
 
-    """
-    def imageCB(self, msg):
-        # save image on image shift
-        self.img_msg = msg
-        curr_dist = self.lastDistance
-        if self.visual_turn and self.last_img_msg is not None and self.isMapping:
-            # create message
-            srv_msg = SensorsInputImages()
-            srv_msg.map_images = ImageList([self.last_img_msg])
-            srv_msg.live_images = ImageList([self.img_msg])
-
-            try:
-                resp1 = self.local_align(srv_msg)
-                hist = resp1.histograms[0].data
-                half_size = np.size(hist)/2.0
-                self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
-                if abs(self.curr_trans) > self.max_trans and self.last_saved_dist != curr_dist:
-                    rospy.logdebug("Hit waypoint turn")
-                    self.nextStep = curr_dist + self.mapStep
-                    filename = os.path.join(self.mapName, str(curr_dist) + "_" + str(self.curr_trans))
-                    save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
-                    self.last_img_msg = self.img_msg
-            except Exception as e:
-                rospy.logwarn("Service call failed: %s" % e)
-
-        self.checkShutdown()
-
-    def distanceCB(self, msg):
-        # save image after traveled distance
-        if self.isMapping == False or self.img_msg is None:
-            return
-        dist = msg.output
-        self.lastDistance = dist
-        if dist >= self.nextStep:
-            self.last_saved_dist = dist
-            if self.img_msg is None:
-                rospy.logwarn("Warning: no image received!")
-            rospy.logdebug("Hit waypoint distance")
-            self.nextStep = self.lastDistance + self.mapStep
-            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans))
-            save_img(self.img_msg, filename, self.save_imgs, self.get_repr_srv)  # with resizing
-            self.last_img_msg = self.img_msg
-            # cv2.imwrite(filename, self.img)
-
-        self.checkShutdown()
-    """
 
     def joyCB(self, msg):
         if self.isMapping:

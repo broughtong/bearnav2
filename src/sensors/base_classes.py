@@ -216,8 +216,11 @@ class SensorFusion(ABC):
         self.abs_align_est = abs_align_est
         self.rel_align_est = rel_align_est
         self.repr_creator = repr_creator
+
+        self.t_dist = rospy.Timer(rospy.Duration(0.1), self.publish_dist)
+        self.t_align = rospy.Timer(rospy.Duration(0.1), self.publish_align)
     
-    def publish_dist(self):
+    def publish_dist(self, timer):
         """
         publish distance as a float in meters - we need always header for time synchronization!
         """
@@ -232,7 +235,7 @@ class SensorFusion(ABC):
             out.output_uncertainty = -1.0
         self.output_dist.publish(out)
 
-    def publish_align(self):
+    def publish_align(self, timer):
         """
         publish alignment as a float from -1.0 to 1.0
         """

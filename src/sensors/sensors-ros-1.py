@@ -20,7 +20,7 @@ def start_subscribes(fusion_class,
     # subscribers for images and other topics used for alignment and distance estimation
     if fusion_class.abs_align_est is not None and len(abs_align_topic) > 0:
         rospy.Subscriber(abs_align_topic, fusion_class.abs_align_est.supported_message_type,
-                         fusion_class.process_abs_alignment, queue_size=1, buff_size=20000000)
+                         fusion_class.process_abs_alignment, queue_size=1, buff_size=50000000)
     if fusion_class.abs_dist_est is not None and len(abs_dist_topic) > 0:
         rospy.Subscriber(abs_dist_topic, fusion_class.abs_dist_est.supported_message_type,
                          fusion_class.process_abs_distance, queue_size=1)
@@ -65,16 +65,16 @@ if __name__ == '__main__':
 
     # Set here fusion method for repeating phase ------------------------------------------
     # 1) Bearnav classic - this method also needs publish span 0 in the repeater !!!
-    repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs, None)
-    repeat_handlers = start_subscribes(repeat_fusion,
-                                       "sensors_input", odom_topic, "", "",
-                                       "", "")
-    # 2) Particle filter 2D - parameters are really important
-    # repeat_fusion = PF2D("repeat", 500, 0.1, 1.0, 0.03, 0.3, 1, True,
-    #                      align_abs, align_rel, dist_rel, align_abs)
+    # repeat_fusion = BearnavClassic("repeat", align_abs, dist_abs, align_abs, None)
     # repeat_handlers = start_subscribes(repeat_fusion,
-    #                                    "sensors_input", "", odom_topic, "",
-    #                                    "local_alignment", "")
+    #                                    "sensors_input", odom_topic, "", "",
+    #                                    "", "")
+    # 2) Particle filter 2D - parameters are really important
+    repeat_fusion = PF2D("repeat", 400, 0.1, 1.0, 0.1, 0.3, 1, True,
+                         align_abs, align_rel, dist_rel, align_abs)
+    repeat_handlers = start_subscribes(repeat_fusion,
+                                       "sensors_input", "", odom_topic, "",
+                                       "local_alignment", "")
     # 3) Visual Only
     # repeat_fusion = VisualOnly("repeat", align_abs, align_abs, align_abs)
     # repeat_handler = start_subscribes(repeat_fusion,
