@@ -98,7 +98,7 @@ class ActionServer():
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
 
         rospy.wait_for_service("teach/get_repr")
-        self.get_repr_srv = rospy.ServiceProxy("teach/get_repr", Representations)
+        self.get_repr_srv = rospy.ServiceProxy("teach/get_repr", Representations, persistent=True)
         rospy.logwarn("Repeater reached the representation maker!")
 
         rospy.logdebug("Setting up published for commands")
@@ -119,6 +119,7 @@ class ActionServer():
     def pubSensorsInput(self, img_msg):
         self.img = img_msg
         time_now = rospy.Time.now()
+        rospy.logwarn("Obtained image!")
         if not self.isRepeating:
             return
         if len(self.map_images) > 0:
@@ -140,7 +141,9 @@ class ActionServer():
                 time_trans = []
             # Parse the live feed
             img_msg = parse_camera_msg(img_msg)
+            rospy.logwarn("computing service")
             live_imgs = self.get_repr_srv(ImageList([img_msg])).features
+            rospy.logwarn("service returned, creating message")
             # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header = img_msg.header
@@ -151,9 +154,11 @@ class ActionServer():
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
 
+            rospy.logwarn("message created")
             self.sensors_pub.publish(sns_in)
             self.last_nearest_idx = nearest_map_idx
             
+            rospy.logwarn("Image published!")
             # DEBUGGING
             # self.debug_map_img.publish(self.map_images[nearest_map_idx])
 
@@ -352,5 +357,8 @@ if __name__ == '__main__':
 
     rospy.init_node("replayer_server")
     server = ActionServer()
-    rospy.spin()
+    rate = rospy.Rate(10) 
+            
+    while not rospy.is_shutdown():
+        rate.sleep()
     server.shutdown()

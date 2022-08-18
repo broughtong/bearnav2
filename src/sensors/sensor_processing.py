@@ -136,6 +136,7 @@ class PF2D(SensorFusion):
         return out
 
     def _process_abs_alignment(self, msg):
+        rospy.logwarn("PF obtained new input")
         # get everything
         curr_time = float(str(msg.header.stamp.secs).zfill(10)[-4:] + str(msg.header.stamp.nsecs).zfill(9)[:4])
         if self.last_image is not None:
@@ -194,6 +195,8 @@ class PF2D(SensorFusion):
             out.append(moved_particles)
 
         self.particles = np.concatenate(out).transpose()
+
+        rospy.logwarn("Motion step finished!")
 
         # sensor step -------------------------------------------------------------------------------
         # add new particles

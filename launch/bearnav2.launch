@@ -34,8 +34,6 @@
             <param name="cmd_vel_topic" type="string" value="$(arg cmd_vel_pub)"/>
         </node>
 
-        <!-- image preprocessing -->
-        <node pkg="bearnav2" type="preprocess-ros-1.py" name="preprocess" respawn="true" output="screen" args="-OO" />
-
     </group>
 </launch>
+

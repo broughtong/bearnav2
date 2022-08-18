@@ -3,6 +3,7 @@ from base_classes import ProbabilityDistanceEstimator, DisplacementEstimator, Ab
 import torch as t
 from backends.siamese.siam_model import get_parametrized_model, load_model
 from torchvision import transforms
+from torchvision.transforms import InterpolationMode
 import rospy
 import os
 from bearnav2.msg import SensorsInput, ImageList, Features
@@ -11,7 +12,6 @@ from scipy import interpolate
 import ros_numpy
 import ros
 from sensor_msgs.msg import Image
-# from torch2trt import torch2trt
 
 class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
                  AbsoluteDistanceEstimator, RepresentationsCreator):
@@ -28,11 +28,12 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         model = get_parametrized_model(False, 3, 256, 0, 3, self.device)
         file_path = os.path.dirname(os.path.abspath(__file__))
         self.model = load_model(model, os.path.join(file_path, "./model_eunord.pt")).to(self.device).float()
-        self.model.eval()
+        self.model = self.model.eval()
 
-        if self.device == t.device("cuda"):
-            rospy.loginfo("speeding up neural network")
-            tmp = t.ones((1, 3, 320, 512)).cuda().float()
+        # if self.device == t.device("cuda"):
+            # from torch2trt import torch2trt
+            # rospy.loginfo("speeding up neural network")
+            # tmp = t.ones((1, 3, 320, 512)).cuda().float()
             # self.model.backbone = torch2trt(self.model.backbone, [tmp])
 
         self.to_tensor = transforms.ToTensor()
@@ -65,8 +66,11 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
 
     def _to_feature(self, msg: Image) -> Features:
         with t.no_grad():
+            rospy.logwarn("NN init")
             tensor_in = self.image_to_tensor(msg.data)
+            rospy.logwarn("NN in")
             reprs = self.model.get_repr(tensor_in.float())
+            rospy.logwarn("NN out")
             ret_features = []
             for repr in reprs:
                 f = Features()
@@ -108,7 +112,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
 
     def image_to_tensor(self, imgs):
         desired_height = int(imgs[0].height * self.resize_w / imgs[0].width)
-        image_list = [transforms.Resize(desired_height)(self.to_tensor(ros_numpy.numpify(img)).to(self.device))
+        image_list = [transforms.Resize(desired_height, interpolation=InterpolationMode.NEAREST)(self.to_tensor(ros_numpy.numpify(img)).to(self.device))
                       for img in imgs]
         stacked_tensor = t.stack(image_list)
         return stacked_tensor
