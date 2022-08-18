@@ -13,6 +13,7 @@ PAD = 32
 NETWORK_DIVISION = 8
 RESIZE_W = 512
 
+
 def start_subscribes(fusion_class,
                      abs_align_topic, abs_dist_topic, rel_dist_topic, prob_dist_topic,
                      rel_align_service_name, repr_service_name):

@@ -90,16 +90,11 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
-        self.camera_topic = rospy.get_param("~camera_topic")
-        self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.pubSensorsInput, queue_size=1, buff_size=20000000)
-        rospy.logwarn(self.camera_topic)
+        self.cam_sub = rospy.Subscriber("live_features", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
+        rospy.logwarn("Representations subscribed")
 
         rospy.logdebug("Connecting to sensors module")
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
-
-        rospy.wait_for_service("teach/get_repr")
-        self.get_repr_srv = rospy.ServiceProxy("teach/get_repr", Representations, persistent=True)
-        rospy.logwarn("Repeater reached the representation maker!")
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
@@ -139,17 +134,12 @@ class ActionServer():
             else:
                 transitions = []
                 time_trans = []
-            # Parse the live feed
-            img_msg = parse_camera_msg(img_msg)
-            rospy.logwarn("computing service")
-            live_imgs = self.get_repr_srv(ImageList([img_msg])).features
-            rospy.logwarn("service returned, creating message")
             # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header = img_msg.header
             sns_in.header.stamp = time_now 
             sns_in.map_features = map_imgs
-            sns_in.live_features = live_imgs
+            sns_in.live_features = img_msg
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
