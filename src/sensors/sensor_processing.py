@@ -254,7 +254,7 @@ class PF2D(SensorFusion):
             self.particles_pub.publish(particles_out)
             # rospy.loginfo("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
             # rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
-                          + " and " + str(np.mean(trans_diff)))
+            #               + " and " + str(np.mean(trans_diff)))
 
         rospy.logwarn("Finished processing - everything took: " + str((rospy.Time.now() - msg.header.stamp).to_sec() / 1000000000.0) + " secs")
 
