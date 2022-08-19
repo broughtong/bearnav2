@@ -136,7 +136,7 @@ class PF2D(SensorFusion):
         return out
 
     def _process_abs_alignment(self, msg):
-        rospy.logwarn("PF obtained new input")
+        # rospy.logwarn("PF obtained new input")
         # get everything
         curr_time = float(str(msg.header.stamp.secs).zfill(10)[-4:] + str(msg.header.stamp.nsecs).zfill(9)[:4])
         if self.last_image is not None:
@@ -174,7 +174,7 @@ class PF2D(SensorFusion):
         closest_transition = np.transpose(np.clip(np.argmin(np.abs(mat_dists - p_distances), axis=0), 0, len(dists) - 2))
 
         traveled_fracs = float(curr_time_diff) / time_diffs
-        rospy.loginfo("traveled fracs:" + str(traveled_fracs))
+        # rospy.loginfo("traveled fracs:" + str(traveled_fracs))
 
         trans_cumsum_per_particle = trans[closest_transition]
         frac_per_particle = traveled_fracs[closest_transition]
@@ -196,7 +196,7 @@ class PF2D(SensorFusion):
 
         self.particles = np.concatenate(out).transpose()
 
-        rospy.logwarn("Motion step finished!")
+        # rospy.logwarn("Motion step finished!")
 
         # sensor step -------------------------------------------------------------------------------
         # add new particles
@@ -252,11 +252,11 @@ class PF2D(SensorFusion):
         if self.debug:
             particles_out = self.particles.flatten()
             self.particles_pub.publish(particles_out)
-            rospy.loginfo("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
-            rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
+            # rospy.loginfo("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
+            # rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
                           + " and " + str(np.mean(trans_diff)))
 
-        rospy.logwarn("Finished processing of image obtained at: " + str(msg.header.stamp))
+        rospy.logwarn("Finished processing - everything took: " + str((rospy.Time.now() - msg.header.stamp).to_sec() / 1000000000.0) + " secs")
 
     def _process_rel_distance(self, msg):
         # only increment the distance

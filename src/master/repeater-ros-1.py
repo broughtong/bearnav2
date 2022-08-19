@@ -114,7 +114,7 @@ class ActionServer():
     def pubSensorsInput(self, img_msg):
         self.img = img_msg
         time_now = rospy.Time.now()
-        rospy.logwarn("Obtained image!")
+        # rospy.logwarn("Obtained image!")
         if not self.isRepeating:
             return
         if len(self.map_images) > 0:
@@ -143,11 +143,11 @@ class ActionServer():
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
 
-            rospy.logwarn("message created")
+            # rospy.logwarn("message created")
             self.sensors_pub.publish(sns_in)
             self.last_nearest_idx = nearest_map_idx
             
-            rospy.logwarn("Image published!")
+            # rospy.logwarn("Image published!")
             # DEBUGGING
             # self.debug_map_img.publish(self.map_images[nearest_map_idx])
 
@@ -346,8 +346,5 @@ if __name__ == '__main__':
 
     rospy.init_node("replayer_server")
     server = ActionServer()
-    rate = rospy.Rate(10) 
-            
-    while not rospy.is_shutdown():
-        rate.sleep()
+    rospy.spin()
     server.shutdown()

@@ -82,6 +82,4 @@ if __name__ == '__main__':
     #                                   "sensors_input", "", "", "sensors_input",
     #                                   "", "")
 
-    rate = rospy.Rate(100) # ROS Rate at 5Hz
-    while not rospy.is_shutdown():
-        rate.sleep()
+    rospy.spin()
