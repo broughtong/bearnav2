@@ -7,7 +7,7 @@ from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
 from backends.crosscorrelation.crosscorr import CrossCorrelation
 from sensor_msgs.msg import Image
-from bearnav2.msg import Features
+from bearnav2.msg import Features, ImageList
 import ros_numpy
 
 
@@ -27,8 +27,9 @@ def parse_camera_msg(msg):
 
 def produce_representationCB(image):
     img = parse_camera_msg(image)
-    features = align_abs._to_feature(img)
-    pub.publish(features)
+    msg = ImageList([img])
+    features = align_abs._to_feature(msg)
+    pub.publish(features[0])
 
 
 if __name__ == '__main__':

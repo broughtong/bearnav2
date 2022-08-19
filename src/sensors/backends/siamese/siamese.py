@@ -67,15 +67,12 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
 
     def _to_feature(self, msg: Image) -> Features:
         with t.no_grad():
-            rospy.logwarn("NN init")
             tensor_in = self.image_to_tensor(msg.data)
-            rospy.logwarn("NN in")
             reprs = self.model.get_repr(tensor_in.float())
-            rospy.logwarn("NN out")
             ret_features = []
             for repr in reprs:
                 f = Features()
-                f.shape = repr.shape
+                f.shape = t.tensor(repr.shape).numpy()
                 f.values = t.flatten(repr).detach().cpu().numpy()
                 ret_features.append(f)
             return ret_features

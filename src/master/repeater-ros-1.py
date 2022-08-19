@@ -90,7 +90,7 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("live_features", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
+        self.cam_sub = rospy.Subscriber("live_representation", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
         rospy.logwarn("Representations subscribed")
 
         rospy.logdebug("Connecting to sensors module")
@@ -136,10 +136,9 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
-            sns_in.header = img_msg.header
             sns_in.header.stamp = time_now 
             sns_in.map_features = map_imgs
-            sns_in.live_features = img_msg
+            sns_in.live_features = [img_msg]
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
