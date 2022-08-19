@@ -27,7 +27,7 @@ def parse_camera_msg(msg):
 
 def produce_representationCB(image):
     img = parse_camera_msg(image)
-    features = align_abs.to_feature(img)
+    features = align_abs._to_feature(img)
     pub.publish(features)
 
 

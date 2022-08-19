@@ -65,7 +65,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
     def _from_feature(self, msg: Features):
         return t.stack([t.tensor(np.array(feature.values).reshape(feature.shape)) for feature in msg], dim=0).to(self.device)
 
-    def to_feature(self, msg: Image) -> Features:
+    def _to_feature(self, msg: Image) -> Features:
         with t.no_grad():
             rospy.logwarn("NN init")
             tensor_in = self.image_to_tensor(msg.data)
