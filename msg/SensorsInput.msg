@@ -3,4 +3,3 @@ Features[] map_features
 Features[] live_features
 float32[] map_distances
 float32[] map_transitions
-int32[] time_transitions

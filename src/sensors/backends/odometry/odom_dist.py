@@ -1,19 +1,7 @@
 from base_classes import RelativeDistanceEstimator, AbsoluteDistanceEstimator
 from nav_msgs.msg import Odometry
-import tf
-import geometry_msgs
 import rospy
 
-
-def pose_to_angle(pose_msg):
-    quaternion = (
-        pose_msg.pose.orientation.x,
-        pose_msg.pose.orientation.y,
-        pose_msg.pose.orientation.z,
-        pose_msg.pose.orientation.w)
-    euler = tf.transformations.euler_from_quaternion(quaternion)
-    yaw = euler[2]
-    return yaw
 
 class OdometryAbsolute(AbsoluteDistanceEstimator):
 
@@ -30,12 +18,7 @@ class OdometryAbsolute(AbsoluteDistanceEstimator):
         dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
-        self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5 
-        # add very slight distance during turning to avoid similar images
-        yaw1 = pose_to_angle(self.last_odom.pose)
-        yaw2 = pose_to_angle(msg.pose)
-        dturn = min((2 * 3.16) - abs(yaw1 - yaw2), abs(yaw1 - yaw2))
-        self._distance += abs(dturn)
+        self._distance += (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
         self.last_odom = msg
         self.header = msg.header
         return self._distance
@@ -64,12 +47,8 @@ class OdometryRelative(RelativeDistanceEstimator):
         dx = self.last_odom.pose.pose.position.x - msg.pose.pose.position.x
         dy = self.last_odom.pose.pose.position.y - msg.pose.pose.position.y
         dz = self.last_odom.pose.pose.position.z - msg.pose.pose.position.z
-        # add very slight distance during turning to avoid similar images
-        yaw1 = pose_to_angle(self.last_odom.pose)
-        yaw2 = pose_to_angle(msg.pose)
-        dturn = min((2 * 3.16) - abs(yaw1 - yaw2), abs(yaw1 - yaw2))
         self.last_odom = msg
-        return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5 + dturn
+        return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
 
     def health_check(self) -> bool:
         return True

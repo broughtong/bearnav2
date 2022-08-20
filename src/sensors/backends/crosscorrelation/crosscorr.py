@@ -20,7 +20,6 @@ class CrossCorrelation(DisplacementEstimator):
         super(CrossCorrelation, self).__init__()
         self.supported_message_type = SensorsInputImages
         self.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
-        rospy.logwarn("Crosscorrelation running on device: " + str(self.device))
         # init neural network
         self.padding = padding
         self.network_division = network_division

@@ -25,11 +25,10 @@ def callback(msg):
     msg_size = len(msg.data)
     distances = msg.data[:msg_size//2]
     displacements = msg.data[msg_size//2:]
-    ax.plot(displacements, distances, "o", alpha=0.2)
-    ax.set_xlim([-1.0, 1.0])
+    ax.plot(displacements, distances, "o")
+    ax.set_xlim([-0.5, 0.5])
     curr_window = np.mean(distances)//3
     ax.set_ylim([3*curr_window, 3*(curr_window+1)])
-    # ax.set_ylim([np.min(distances), np.max(distances)])
     ax.grid()
     fig.canvas.draw()
 
