@@ -10,6 +10,7 @@ from bearnav2.msg import SensorsInput, ImageList, Features
 from typing import List
 from scipy import interpolate
 import ros_numpy
+import ros
 from sensor_msgs.msg import Image
 
 
@@ -30,11 +31,11 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         self.model = load_model(model, os.path.join(file_path, "./model_eunord.pt")).to(self.device).float()
         self.model = self.model.eval()
 
-        if self.device == t.device("cuda"):
-            from torch2trt import torch2trt
-            rospy.loginfo("speeding up neural network")
-            tmp = t.ones((1, 3, 320, 512)).cuda().float()
-            self.model.backbone = torch2trt(self.model.backbone, [tmp])
+        # if self.device == t.device("cuda"):
+            # from torch2trt import torch2trt
+            # rospy.loginfo("speeding up neural network")
+            # tmp = t.ones((1, 3, 320, 512)).cuda().float()
+            # self.model.backbone = torch2trt(self.model.backbone, [tmp])
 
         self.to_tensor = transforms.ToTensor()
         self.alignment_processing = False
@@ -64,12 +65,10 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
     def _from_feature(self, msg: Features):
         return t.stack([t.tensor(np.array(feature.values).reshape(feature.shape)) for feature in msg], dim=0).to(self.device)
 
-    def _to_feature(self, msg: Image, pytorch=False) -> Features:
+    def _to_feature(self, msg: Image) -> Features:
         with t.no_grad():
             tensor_in = self.image_to_tensor(msg.data)
             reprs = self.model.get_repr(tensor_in.float())
-            if pytorch:
-                return reprs
             ret_features = []
             for repr in reprs:
                 f = Features()
@@ -81,8 +80,8 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
     def health_check(self) -> bool:
         return True
 
-    def process_msg(self, msg, pytorch=False):
-        hist = self.forward(msg.map_features, msg.live_features, pytorch)
+    def process_msg(self, msg):
+        hist = self.forward(msg.map_features, msg.live_features)
         f = interpolate.interp1d(np.linspace(0, self.resize_w, hist.shape[-1]), hist, kind="cubic")
         interp_hist = f(np.arange(0, self.resize_w))
         self.distances_probs = np.max(interp_hist, axis=1)
@@ -91,20 +90,14 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             zeros = np.zeros(np.size(hist)//2)
             ret.append(np.concatenate([zeros, hist, zeros]))    # siam can do only -0.5 to 0.5 img so extend both sides by sth
         self.histograms = ret
-        if pytorch:
-            return ret
 
-    def forward(self, map_features, live_features, pytorch=False):
+    def forward(self, map_features, live_features):
         """
         map_images: list of Image messages (map images)
         live_images: list of Image messages (live feed) - right now is supported size 1
         """
-        if not pytorch:
-            tensor1 = self._from_feature(map_features)
-            tensor2 = self._from_feature(live_features)
-        else:
-            tensor1 = map_features
-            tensor2 = live_features
+        tensor1 = self._from_feature(map_features)
+        tensor2 = self._from_feature(live_features)
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             # only the crosscorrelation here since the representations were already calculated!

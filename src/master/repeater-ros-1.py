@@ -10,7 +10,7 @@ import threading
 import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float64, Header
+from std_msgs.msg import Float64
 from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList, Features
 from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment, Representations
 import numpy as np
@@ -78,7 +78,6 @@ class ActionServer():
         self.use_distances = False
         self.distance_finish_offset = 0.2
         self.last_nearest_idx = 0
-        self.curr_header = None
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -90,9 +89,9 @@ class ActionServer():
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
-        # rospy.logdebug("Subscibing to cameras")
-        # self.cam_sub = rospy.Subscriber("live_representation", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
-        # rospy.logwarn("Representations subscribed")
+        rospy.logdebug("Subscibing to cameras")
+        self.cam_sub = rospy.Subscriber("live_representation", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
+        rospy.logwarn("Representations subscribed")
 
         rospy.logdebug("Connecting to sensors module")
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
@@ -112,7 +111,10 @@ class ActionServer():
         self.clockGain = req.gain 
         return SetClockGainResponse()
 
-    def pubSensorsInput(self):
+    def pubSensorsInput(self, img_msg):
+        self.img = img_msg
+        time_now = rospy.Time.now()
+        # rospy.logwarn("Obtained image!")
         if not self.isRepeating:
             return
         if len(self.map_images) > 0:
@@ -134,9 +136,9 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
-            sns_in.header = self.curr_header
+            sns_in.header.stamp = time_now 
             sns_in.map_features = map_imgs
-            sns_in.live_features = []
+            sns_in.live_features = [img_msg]
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
@@ -157,8 +159,6 @@ class ActionServer():
             rospy.logwarn("Warning: no image received")
 
         self.curr_dist = msg.output
-        self.curr_header = msg.header
-        self.pubSensorsInput()
 
         if self.curr_dist >= (self.map_distances[-1] - self.distance_finish_offset) and self.use_distances or\
                 (self.endPosition != 0.0 and self.endPosition < self.curr_dist):
