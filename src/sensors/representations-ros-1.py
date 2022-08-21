@@ -10,6 +10,7 @@ from sensor_msgs.msg import Image
 from bearnav2.msg import Features, ImageList, SensorsInput
 import ros_numpy
 import torch as t
+from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 
 # Network hyperparameters
@@ -18,8 +19,6 @@ NETWORK_DIVISION = 8
 RESIZE_W = 512
 
 
-current_map = None
-map_tensor = None
 last_live_rep = None
 
 
@@ -31,25 +30,23 @@ def parse_camera_msg(msg):
     return img_msg
 
 
-def produce_histogramsCB(image):
-    global last_live_rep, current_map, map_tensor
+def produce_histogramsCB(image, map_msg):
+    global last_live_rep
+    current_map = map_msg
+    map_tensor = align_abs._from_feature(current_map.map_features)
     img = parse_camera_msg(image)
     msg = ImageList([img])
     curr_img_tensor = align_abs._to_feature(msg, pytorch=True)
     if current_map is not None and map_tensor is not None and last_live_rep is not None:
-        extended_map_tensor = t.stack([map_tensor, last_live_rep])
+        extended_map_tensor = t.cat([map_tensor, last_live_rep])
         histograms = align_abs.forward(extended_map_tensor, curr_img_tensor, pytorch=True)
-        current_map.live_features.values = histograms.flatten()
-        current_map.live_features.shape = histograms.shape
+        ret_feature = Features()
+        ret_feature.shape = histograms.shape
+        ret_feature.values = histograms.flatten()
+        current_map.live_features = [ret_feature]
         current_map.header = image.header
         pub.publish(current_map)
     last_live_rep = curr_img_tensor
-
-
-def fetch_mapCB(map_msg):
-    global current_map, map_tensor
-    current_map = map_msg
-    map_tensor = align_abs._from_feature(current_map.map_features)
 
 
 if __name__ == '__main__':
@@ -59,11 +56,16 @@ if __name__ == '__main__':
 
     # Choose sensor method
     align_abs = SiameseCNN(padding=PAD, resize_w=RESIZE_W)
-    pub = rospy.Publisher("sensors_output", SensorsInput, queue_size=1)
-    sub_camera = rospy.Subscriber(camera_topic, Image,
-                                  produce_histogramsCB, queue_size=1, buff_size=10000000)
-    sub_map = rospy.Subscriber("sensors_input", SensorsInput,
-                               fetch_mapCB, queue_size=1, buff_size=10000000)
+    # pub = rospy.Publisher("sensors_output", SensorsInput, queue_size=1)
+    # sub_camera = rospy.Subscriber(camera_topic, Image,
+    #                               produce_histogramsCB, queue_size=1, buff_size=10000000)
+    # sub_map = rospy.Subscriber("sensors_input", SensorsInput,
+    #                            fetch_mapCB, queue_size=1, buff_size=10000000)
 
+
+    cam_sub = Subscriber(camera_topic, Image)
+    map_sub = Subscriber("sensors_input", SensorsInput)
+    synced_topics = ApproximateTimeSynchronizer([cam_sub, map_sub], queue_size=1, slop=0.25)
+    synced_topics.registerCallback(produce_histogramsCB)
 
     rospy.spin()

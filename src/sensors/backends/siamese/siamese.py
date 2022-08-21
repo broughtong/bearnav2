@@ -30,11 +30,11 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         self.model = load_model(model, os.path.join(file_path, "./model_eunord.pt")).to(self.device).float()
         self.model = self.model.eval()
 
-        # if self.device == t.device("cuda"):
-            # from torch2trt import torch2trt
-            # rospy.loginfo("speeding up neural network")
-            # tmp = t.ones((1, 3, 320, 512)).cuda().float()
-            # self.model.backbone = torch2trt(self.model.backbone, [tmp])
+        if self.device == t.device("cuda"):
+            from torch2trt import torch2trt
+            rospy.loginfo("speeding up neural network")
+            tmp = t.ones((1, 3, 320, 512)).cuda().float()
+            self.model.backbone = torch2trt(self.model.backbone, [tmp])
 
         self.to_tensor = transforms.ToTensor()
         self.alignment_processing = False
