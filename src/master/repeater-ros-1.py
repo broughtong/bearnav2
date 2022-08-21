@@ -10,7 +10,7 @@ import threading
 import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Header
 from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList, Features
 from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment, Representations
 import numpy as np
@@ -78,6 +78,7 @@ class ActionServer():
         self.use_distances = False
         self.distance_finish_offset = 0.2
         self.last_nearest_idx = 0
+        self.curr_header = None
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -133,6 +134,7 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
+            sns_in.header = self.curr_header
             sns_in.map_features = map_imgs
             sns_in.live_features = []
             sns_in.map_distances = distances
@@ -155,6 +157,7 @@ class ActionServer():
             rospy.logwarn("Warning: no image received")
 
         self.curr_dist = msg.output
+        self.curr_header = msg.header
         self.pubSensorsInput()
 
         if self.curr_dist >= (self.map_distances[-1] - self.distance_finish_offset) and self.use_distances or\
