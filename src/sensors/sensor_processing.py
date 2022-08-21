@@ -139,7 +139,7 @@ class PF2D(SensorFusion):
         # rospy.logwarn("PF obtained new input")
         # get everything
         curr_time = float(str(msg.header.stamp.secs).zfill(10)[-4:] + str(msg.header.stamp.nsecs).zfill(9)[:4])
-        out = np.array(msg.live_features.values).reshape(msg.live_features.shape)
+        out = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hists = out[:-1]
         live_hist = out[-1]
         if self.last_image is not None:
