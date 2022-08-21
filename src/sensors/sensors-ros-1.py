@@ -74,7 +74,7 @@ if __name__ == '__main__':
     repeat_fusion = PF2D("repeat", 400, 0.1, 1.0, 0.1, 0.3, 1, True,
                          align_abs, align_rel, dist_rel, align_abs)
     repeat_handlers = start_subscribes(repeat_fusion,
-                                       "sensors_input", "", odom_topic, "",
+                                       "sensors_output", "", odom_topic, "",
                                        "local_alignment", "")
     # 3) Visual Only
     # repeat_fusion = VisualOnly("repeat", align_abs, align_abs, align_abs)

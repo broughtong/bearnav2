@@ -89,9 +89,9 @@ class ActionServer():
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
-        rospy.logdebug("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("live_representation", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
-        rospy.logwarn("Representations subscribed")
+        # rospy.logdebug("Subscibing to cameras")
+        # self.cam_sub = rospy.Subscriber("live_representation", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
+        # rospy.logwarn("Representations subscribed")
 
         rospy.logdebug("Connecting to sensors module")
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
@@ -111,10 +111,7 @@ class ActionServer():
         self.clockGain = req.gain 
         return SetClockGainResponse()
 
-    def pubSensorsInput(self, img_msg):
-        self.img = img_msg
-        time_now = rospy.Time.now()
-        # rospy.logwarn("Obtained image!")
+    def pubSensorsInput(self):
         if not self.isRepeating:
             return
         if len(self.map_images) > 0:
@@ -136,9 +133,8 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
-            sns_in.header.stamp = time_now 
             sns_in.map_features = map_imgs
-            sns_in.live_features = [img_msg]
+            sns_in.live_features = []
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
@@ -159,6 +155,7 @@ class ActionServer():
             rospy.logwarn("Warning: no image received")
 
         self.curr_dist = msg.output
+        self.pubSensorsInput()
 
         if self.curr_dist >= (self.map_distances[-1] - self.distance_finish_offset) and self.use_distances or\
                 (self.endPosition != 0.0 and self.endPosition < self.curr_dist):

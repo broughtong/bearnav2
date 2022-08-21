@@ -10,7 +10,6 @@ from bearnav2.msg import SensorsInput, ImageList, Features
 from typing import List
 from scipy import interpolate
 import ros_numpy
-import ros
 from sensor_msgs.msg import Image
 
 
@@ -65,10 +64,12 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
     def _from_feature(self, msg: Features):
         return t.stack([t.tensor(np.array(feature.values).reshape(feature.shape)) for feature in msg], dim=0).to(self.device)
 
-    def _to_feature(self, msg: Image) -> Features:
+    def _to_feature(self, msg: Image, pytorch=False) -> Features:
         with t.no_grad():
             tensor_in = self.image_to_tensor(msg.data)
             reprs = self.model.get_repr(tensor_in.float())
+            if pytorch:
+                return reprs
             ret_features = []
             for repr in reprs:
                 f = Features()
@@ -80,8 +81,8 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
     def health_check(self) -> bool:
         return True
 
-    def process_msg(self, msg):
-        hist = self.forward(msg.map_features, msg.live_features)
+    def process_msg(self, msg, pytorch=False):
+        hist = self.forward(msg.map_features, msg.live_features, pytorch)
         f = interpolate.interp1d(np.linspace(0, self.resize_w, hist.shape[-1]), hist, kind="cubic")
         interp_hist = f(np.arange(0, self.resize_w))
         self.distances_probs = np.max(interp_hist, axis=1)
@@ -90,14 +91,20 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             zeros = np.zeros(np.size(hist)//2)
             ret.append(np.concatenate([zeros, hist, zeros]))    # siam can do only -0.5 to 0.5 img so extend both sides by sth
         self.histograms = ret
+        if pytorch:
+            return ret
 
-    def forward(self, map_features, live_features):
+    def forward(self, map_features, live_features, pytorch=False):
         """
         map_images: list of Image messages (map images)
         live_images: list of Image messages (live feed) - right now is supported size 1
         """
-        tensor1 = self._from_feature(map_features)
-        tensor2 = self._from_feature(live_features)
+        if not pytorch:
+            tensor1 = self._from_feature(map_features)
+            tensor2 = self._from_feature(live_features)
+        else:
+            tensor1 = map_features
+            tensor2 = live_features
         tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             # only the crosscorrelation here since the representations were already calculated!

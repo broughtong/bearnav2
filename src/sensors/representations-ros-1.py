@@ -7,14 +7,20 @@ from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
 from backends.crosscorrelation.crosscorr import CrossCorrelation
 from sensor_msgs.msg import Image
-from bearnav2.msg import Features, ImageList
+from bearnav2.msg import Features, ImageList, SensorsInput
 import ros_numpy
+import torch as t
 
 
 # Network hyperparameters
 PAD = 32
 NETWORK_DIVISION = 8
 RESIZE_W = 512
+
+
+current_map = None
+map_tensor = None
+last_live_rep = None
 
 
 def parse_camera_msg(msg):
@@ -25,11 +31,25 @@ def parse_camera_msg(msg):
     return img_msg
 
 
-def produce_representationCB(image):
+def produce_histogramsCB(image):
+    global last_live_rep, current_map, map_tensor
     img = parse_camera_msg(image)
     msg = ImageList([img])
-    features = align_abs._to_feature(msg)
-    pub.publish(features[0])
+    curr_img_tensor = align_abs._to_feature(msg, pytorch=True)
+    if current_map is not None and map_tensor is not None and last_live_rep is not None:
+        extended_map_tensor = t.stack([map_tensor, last_live_rep])
+        histograms = align_abs.forward(extended_map_tensor, curr_img_tensor, pytorch=True)
+        current_map.live_features.values = histograms.flatten()
+        current_map.live_features.shape = histograms.shape
+        current_map.header = image.header
+        pub.publish(current_map)
+    last_live_rep = curr_img_tensor
+
+
+def fetch_mapCB(map_msg):
+    global current_map, map_tensor
+    current_map = map_msg
+    map_tensor = align_abs._from_feature(current_map.map_features)
 
 
 if __name__ == '__main__':
@@ -39,7 +59,11 @@ if __name__ == '__main__':
 
     # Choose sensor method
     align_abs = SiameseCNN(padding=PAD, resize_w=RESIZE_W)
-    pub = rospy.Publisher("live_representation", Features, queue_size=1)
-    sub = rospy.Subscriber(camera_topic, Image,
-                           produce_representationCB, queue_size=1, buff_size=50000000)
+    pub = rospy.Publisher("sensors_output", SensorsInput, queue_size=1)
+    sub_camera = rospy.Subscriber(camera_topic, Image,
+                                  produce_histogramsCB, queue_size=1, buff_size=10000000)
+    sub_map = rospy.Subscriber("sensors_input", SensorsInput,
+                               fetch_mapCB, queue_size=1, buff_size=10000000)
+
+
     rospy.spin()
