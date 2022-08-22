@@ -37,13 +37,8 @@ def start_subscribes(fusion_class,
     if fusion_class.rel_align_est is not None and len(rel_align_service_name) > 0:
         relative_image_service = rospy.Service(fusion_class.type_prefix + "/" + rel_align_service_name,
                                                Alignment, fusion_class.process_rel_alignment)
-    # service for representations
-    representation_service = None
-    if fusion_class.repr_creator is not None and len(repr_service_name) > 0:
-        representation_service = rospy.Service(fusion_class.type_prefix + "/" + repr_service_name,
-                                               Representations, fusion_class.create_representations)
 
-    return relative_image_service, representation_service
+    return relative_image_service
 
 
 if __name__ == '__main__':
@@ -59,7 +54,7 @@ if __name__ == '__main__':
 
     # Set here fusion method for teaching phase -------------------------------------------
     # BearnavClassic is currently only supported
-    teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs, align_rel)
+    teach_fusion = BearnavClassic("teach", align_abs, dist_abs, align_abs, align_abs)
     teach_handlers = start_subscribes(teach_fusion,
                                       "", odom_topic, "", "",
                                       "local_alignment", "get_repr")

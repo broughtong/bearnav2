@@ -112,7 +112,7 @@ class ActionServer():
         return SetClockGainResponse()
 
     def pubSensorsInput(self, img_msg):
-        self.img = img_msg
+        self.img = img_msg.data[0]
         time_now = rospy.Time.now()
         # rospy.logwarn("Obtained image!")
         if not self.isRepeating:

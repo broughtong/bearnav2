@@ -7,7 +7,7 @@ from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
 from backends.crosscorrelation.crosscorr import CrossCorrelation
 from sensor_msgs.msg import Image
-from bearnav2.msg import Features, ImageList
+from bearnav2.msg import FeaturesList, ImageList, Features
 import ros_numpy
 
 
@@ -22,14 +22,18 @@ def parse_camera_msg(msg):
     if "bgr" in msg.encoding:
         img = img[..., ::-1]  # switch from bgr to rgb
     img_msg = ros_numpy.msgify(Image, img, "rgb8")
-    return img_msg
+    return img_msg, img
 
 
 def produce_representationCB(image):
-    img = parse_camera_msg(image)
-    msg = ImageList([img])
+    img_msg, img_numpy = parse_camera_msg(image)
+    msg = ImageList([img_msg])
     features = align_abs._to_feature(msg)
-    pub.publish(features[0])
+    img_feature = Features()
+    img_feature.shape = img_numpy.shape
+    img_feature.values = img_numpy.flatten()
+    out = FeaturesList([features[0], img_feature])
+    pub.publish(out)
 
 
 if __name__ == '__main__':
@@ -39,7 +43,7 @@ if __name__ == '__main__':
 
     # Choose sensor method
     align_abs = SiameseCNN(padding=PAD, resize_w=RESIZE_W)
-    pub = rospy.Publisher("live_representation", Features, queue_size=1)
+    pub = rospy.Publisher("live_representation", FeaturesList, queue_size=1)
     sub = rospy.Subscriber(camera_topic, Image,
                            produce_representationCB, queue_size=1, buff_size=50000000)
     rospy.spin()
