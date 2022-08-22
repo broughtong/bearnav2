@@ -29,10 +29,10 @@ def produce_representationCB(image):
     img_msg, img_numpy = parse_camera_msg(image)
     msg = ImageList([img_msg])
     features = align_abs._to_feature(msg)
-    img_feature = Features()
-    img_feature.shape = img_numpy.shape
-    img_feature.values = img_numpy.flatten()
-    out = FeaturesList([features[0], img_feature])
+    # img_feature = Features()
+    # img_feature.shape = img_numpy.shape
+    # img_feature.values = img_numpy.flatten()
+    out = FeaturesList(image.header, [features[0]])# , img_feature])
     pub.publish(out)
 
 
