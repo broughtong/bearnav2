@@ -67,6 +67,7 @@ add_message_files(
     DistancedTwist.msg
     Features.msg
     SensorsInputImages.msg
+    FeaturesList.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -10,8 +10,8 @@ import roslib
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32, Header
-from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList, DistancedTwist
-from bearnav2.srv import SetDist, Alignment, Representations, Features, FeaturesList
+from bearnav2.msg import MapMakerAction, MapMakerResult, SensorsOutput, SensorsInput, ImageList, DistancedTwist, Features, FeaturesList
+from bearnav2.srv import SetDist, Alignment, Representations 
 import numpy as np
 from copy import deepcopy
 import ros_numpy
@@ -21,14 +21,20 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 TARGET_WIDTH = 512
 
 
+def numpy_to_feature(array):
+    return Features(array.flatten(), array.shape)
+
+
 def save_img(img_repr, image, header, filename, save_img):
     time_str = str(header.stamp.secs).zfill(10)[-4:] + str(header.stamp.nsecs).zfill(9)[:4]
     filename = filename + "_" + time_str
     with open(filename + ".npy", 'wb') as fp:
         np.save(fp, img_repr, allow_pickle=False, fix_imports=False)
     if save_img:
-        cv2.imwrite(filename + ".jpg", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-
+        if "rgb" in image.encoding: 
+            cv2.imwrite(filename + ".jpg", cv2.cvtColor(ros_numpy.numpify(image), cv2.COLOR_RGB2BGR))
+        else:
+            cv2.imwrite(filename + ".jpg", ros_numpy.numpify(image))
 
 class ActionServer:
 
@@ -36,7 +42,6 @@ class ActionServer:
 
         self.isMapping = False
         self.img_msg = None
-        self.last_img_msg = None
         self.img_features = None
         self.last_img_features = None
         self.mapName = ""
@@ -45,7 +50,7 @@ class ActionServer:
         self.bag = None
         self.lastDistance = 0.0
         self.visual_turn = True
-        self.max_trans = 0.1
+        self.max_trans = 0.2
         self.curr_trans = 0.0
         self.last_saved_dist = None
         self.save_imgs = False
@@ -91,9 +96,10 @@ class ActionServer:
         # self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
         # self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=10)
         # synchronize necessary topics!
-        cam_sub = Subscriber(self.camera_topic, FeaturesList)
+        repr_sub = Subscriber("live_representation", FeaturesList)
         distance_sub = Subscriber("teach/output_dist", SensorsOutput)
-        synced_topics = ApproximateTimeSynchronizer([cam_sub, distance_sub], queue_size=1, slop=0.25)
+        cam_sub = Subscriber(self.camera_topic, Image)
+        synced_topics = ApproximateTimeSynchronizer([repr_sub, distance_sub, cam_sub], queue_size=2, slop=0.2)
         synced_topics.registerCallback(self.distance_imgCB)
 
         rospy.logwarn("Mapmaker started, awaiting goal")
@@ -104,10 +110,10 @@ class ActionServer:
             rospy.logdebug(f"Adding misc from {topicName}")
             self.bag.write(topicName, msg)
 
-    def distance_imgCB(self, img_msg, dist_msg):
-        self.img_features = np.array(img_msg.data[0].values).reshape(img_msg.data[0].shape)
-        self.img_msg = np.array(img_msg.data[1].values).reshape(img_msg.data[1].shape)
-        self.header = img_msg.header
+    def distance_imgCB(self, repr_msg, dist_msg, img):
+        self.img_features = np.array(repr_msg.data[0].values).reshape(repr_msg.data[0].shape)
+        self.img_msg = img
+        self.header = repr_msg.header
         dist = dist_msg.output
         self.lastDistance = dist
 
@@ -115,16 +121,17 @@ class ActionServer:
             return
 
         # obtain displacement between prev and new image --------------------------------------
-        if self.visual_turn and self.last_img_msg is not None:
+        if self.visual_turn and self.last_img_features is not None:
             # create message
             srv_msg = SensorsInput()
-            srv_msg.map_images = self.last_img_msg
-            srv_msg.live_images = self.img_msg
+            srv_msg.map_features = [numpy_to_feature(self.last_img_features)]
+            srv_msg.live_features = [numpy_to_feature(self.img_features)]
             try:
                 resp1 = self.local_align(srv_msg)
                 hist = resp1.histograms[0].data
                 half_size = np.size(hist)/2.0
-                self.curr_trans = float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
+                self.curr_trans = -float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
+                # rospy.logwarn(self.curr_trans)
             except Exception as e:
                 rospy.logwarn("Service call failed: %s" % e)
         else:
@@ -137,9 +144,7 @@ class ActionServer:
             save_img(self.img_features, self.img_msg, self.header, filename, self.save_imgs)  # with resizing
             rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
             self.cum_turn = 0.0
-
-        self.last_img_msg = img_msg
-        self.last_img_features = self.img_features
+            self.last_img_features = self.img_features
 
         self.checkShutdown()
 
@@ -155,8 +160,8 @@ class ActionServer:
 
         self.save_imgs = goal.saveImgsForViz
         result = MapMakerResult()
-        if self.img_msg is None:
-            rospy.logerr("WARNING: no image coming through, ignoring")
+        if self.img_features is None:
+            rospy.logerr("WARNING: no features coming through, ignoring")
             result.success = False
             self.server.set_succeeded(result)
             return
