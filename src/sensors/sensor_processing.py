@@ -258,7 +258,7 @@ class PF2D(SensorFusion):
             # rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
             #               + " and " + str(np.mean(trans_diff)))
 
-        rospy.logwarn("Finished processing - everything took: " + str((rospy.Time.now() - msg.header.stamp).to_sec() / 1000000000.0) + " secs")
+        rospy.logwarn("Finished processing - everything took: " + str((rospy.Time.now() - msg.header.stamp).to_sec()) + " secs")
 
     def _process_rel_distance(self, msg):
         # only increment the distance

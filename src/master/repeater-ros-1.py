@@ -11,7 +11,7 @@ import queue
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList, Features
+from bearnav2.msg import MapRepeaterAction, MapRepeaterResult, SensorsInput, SensorsOutput, ImageList, FeaturesList, Features
 from bearnav2.srv import SetDist, SetClockGain, SetClockGainResponse, Alignment, Representations
 import numpy as np
 import ros_numpy
@@ -90,7 +90,7 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("live_representation", Features, self.pubSensorsInput, queue_size=1, buff_size=1000000)
+        self.cam_sub = rospy.Subscriber("live_representation", FeaturesList, self.pubSensorsInput, queue_size=1, buff_size=1000000)
         rospy.logwarn("Representations subscribed")
 
         rospy.logdebug("Connecting to sensors module")
@@ -113,7 +113,7 @@ class ActionServer():
 
     def pubSensorsInput(self, img_msg):
         self.img = img_msg.data[0]
-        time_now = rospy.Time.now()
+        time_now = img_msg.header
         # rospy.logwarn("Obtained image!")
         if not self.isRepeating:
             return
@@ -136,9 +136,9 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
-            sns_in.header.stamp = time_now 
+            sns_in.header = time_now 
             sns_in.map_features = map_imgs
-            sns_in.live_features = [img_msg]
+            sns_in.live_features = [self.img]
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
