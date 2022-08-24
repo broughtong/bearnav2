@@ -110,6 +110,7 @@ class PF2D(SensorFusion):
         self.last_time = None
         self.traveled_dist = 0.0
         self.particle_prob = None
+        self.coords = None
 
         # For debugging
         self.debug = debug
@@ -251,6 +252,7 @@ class PF2D(SensorFusion):
         # rospy.logwarn(np.array((dist_diff, hist_diff)))
         if self.debug:
             particles_out = self.particles.flatten()
+            particles_out = np.concatenate([particles_out, self.coords.flatten()])
             self.particles_pub.publish(particles_out)
             # rospy.loginfo("Outputted position: " + str(np.mean(self.particles[0, :])) + " +- " + str(np.std(self.particles[0, :])))
             # rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
@@ -283,16 +285,16 @@ class PF2D(SensorFusion):
     def _get_coords(self):
         # coords = np.mean(self.particles, axis=1)
         if self.particle_prob is not None:
-            coords = self.particles[:, np.argmax(self.particle_prob)]
+            self.coords = self.particles[:, np.argmax(self.particle_prob)]
         else:
-            coords = [0.0, 0.0]
-        if coords[0] < 0.0:
+            self.coords = [0.0, 0.0]
+        if self.coords[0] < 0.0:
             # the estimated distance cannot really be less than 0.0 - fixing for action repeating
             rospy.logwarn("Mean of particles is less than 0.0 - moving them forwards!")
-            self.particles[0, :] -= coords[0] - 0.01  # add one centimeter for numeric issues
+            self.particles[0, :] -= self.coords[0] - 0.01  # add one centimeter for numeric issues
         stds = np.std(self.particles, axis=1)
-        self.distance = coords[0]
-        self.alignment = coords[1]
+        self.distance = self.coords[0]
+        self.alignment = self.coords[1]
         self.distance_std = stds[0]
         self.alignment_std = stds[1]
 
