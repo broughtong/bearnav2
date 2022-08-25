@@ -22,9 +22,9 @@ def callback(msg):
     fig = plt.figure()
     ax = plt.axes()
     ax.title.set_text("Particle filter")
-    msg_size = len(msg.data - 2)
+    msg_size = len(msg.data) - 2
     distances = msg.data[:msg_size//2]
-    displacements = msg.data[msg_size//2:]
+    displacements = msg.data[msg_size//2:-2]
     estimate_x = msg.data[-1]
     estimate_y = msg.data[-2]
     ax.plot(displacements, distances, "o", alpha=0.2)
