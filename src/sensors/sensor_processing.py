@@ -191,7 +191,7 @@ class PF2D(SensorFusion):
             particle_shifts = np.concatenate((np.ones(trans_diff.shape) * traveled, align_shift), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
-                                               scale=(self.odom_error * traveled,  self.align_error * np.mean(np.abs(align_shift))),
+                                               scale=(self.odom_error * traveled, 0.005 +  self.align_error * np.mean(np.abs(align_shift))),
                                                size=(self.particles.shape[1], 2))
             out.append(moved_particles)
 
