@@ -88,6 +88,8 @@ class VisualOnly(SensorFusion):
 
 
 class PF2D(SensorFusion):
+    # First dimension - traveled distance
+    # Second dimension - alignment
 
     def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
                  align_error: float, align_init_std: float, particles_frac: int, debug: bool,
@@ -111,6 +113,9 @@ class PF2D(SensorFusion):
         self.traveled_dist = 0.0
         self.particle_prob = None
         self.coords = None
+
+        self._min_align_noise = 0.01
+        self._clip_surround = 0.5
 
         # For debugging
         self.debug = debug
@@ -188,10 +193,11 @@ class PF2D(SensorFusion):
             trans_diff = np.array(trans_cumsum_per_particle * frac_per_particle)
             align_shift = curr_img_diff + trans_diff
 
-            particle_shifts = np.concatenate((np.ones(trans_diff.shape) * traveled, align_shift), axis=1)
+            # distance is not shifted because it is shifted already in odometry step
+            particle_shifts = np.concatenate((np.ones(trans_diff.shape), align_shift), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
-                                               scale=(self.odom_error * traveled, 0.005 +  self.align_error * np.mean(np.abs(align_shift))),
+                                               scale=(self.odom_error * traveled, 0.01 + self.align_error * np.mean(np.abs(align_shift))),
                                                size=(self.particles.shape[1], 2))
             out.append(moved_particles)
 
@@ -216,11 +222,11 @@ class PF2D(SensorFusion):
         # self.particles = np.concatenate([self.particles.transpose(), new_particles.transpose()]).transpose()
 
         # interpolate
-        maxs_pre = hists.max(axis=1)
+        # maxs_pre = hists.max(axis=1)
         # rospy.logwarn(str(maxs_pre) + str(dists))
         # rospy.loginfo(hists[:, 250:260])
 
-        self.particles[0] = np.clip(self.particles[0], dists[0], dists[-1])
+        self.particles[0] = np.clip(self.particles[0], dists[0] - self._clip_surround, dists[-1] + self._clip_surround)
         self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)
         hist_width = np.shape(hists)[1]
         xs, ys = np.meshgrid(dists, np.linspace(-1.0, 1.0, hist_width))
@@ -264,6 +270,8 @@ class PF2D(SensorFusion):
         # only increment the distance
         dist = self.rel_dist_est.rel_dist_message_callback(msg)
         if dist is not None:
+            self.particles[0] += dist
+            self._get_coords()
             self.traveled_dist += dist
 
     def _process_abs_distance(self, msg):
@@ -285,7 +293,7 @@ class PF2D(SensorFusion):
     def _get_coords(self):
         # coords = np.mean(self.particles, axis=1)
         if self.particle_prob is not None:
-            self.coords = self.particles[:, np.argmax(self.particle_prob)]
+            self.coords = self._get_weighted_mean_pos()
         else:
             self.coords = [0.0, 0.0]
         if self.coords[0] < 0.0:
@@ -303,15 +311,13 @@ class PF2D(SensorFusion):
         curr_img_diff = ((np.argmax(hist) - (np.size(hist) // 2.0)) / half_size)
         return curr_img_diff
 
-    """
-    def _get_rel_alignment(self, live_imgs: ImageList):
-        rel_msg = SensorsInput()
-        rel_msg.live_images = live_imgs
-        rel_msg.map_images = self.last_image
-        # rospy.logwarn(rel_msg.map_images)
-        # rospy.logwarn(rel_msg.live_images)
-        hists = self.rel_align_est.displacement_message_callback(rel_msg)
-        curr_img_diff = self._diff_from_hist(hists[0])
-        rospy.logwarn("curr img diff: " + str(curr_img_diff))
-        return curr_img_diff
-    """
+    def _get_mean_pos(self):
+        return np.mean(self.particles, axis=1)
+
+    def _get_weighted_mean_pos(self):
+        weighted_particles = self.particles * np.repeat(self.particle_prob, (2, 1))
+        out = np.sum(weighted_particles, axis=1) / np.sum(self.particle_prob)
+        return out
+
+    def _get_median_pos(self):
+        return np.median(self.particles, axis=1)
