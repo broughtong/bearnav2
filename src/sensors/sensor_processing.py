@@ -99,6 +99,8 @@ class PF2D(SensorFusion):
                                    rel_align_est=rel_align_est, rel_dist_est=rel_dist_est,
                                    repr_creator=repr_creator)
 
+        self.one_dim = False
+
         self.odom_error = odom_error
         self.align_error = align_error
         self.odom_init_std = odom_init_std
@@ -113,6 +115,7 @@ class PF2D(SensorFusion):
         self.traveled_dist = 0.0
         self.particle_prob = None
         self.coords = None
+        self.last_hists = None
 
         self._min_align_noise = 0.01
         self._clip_surround = 0.5
@@ -251,6 +254,7 @@ class PF2D(SensorFusion):
         self.last_image = msg.live_features
         self.last_time = curr_time
         self.traveled_dist = 0.0
+        self.last_hists = hists
         self._get_coords()
         # self.publish_align()
         # self.publish_dist()
@@ -294,6 +298,8 @@ class PF2D(SensorFusion):
         # coords = np.mean(self.particles, axis=1)
         if self.particle_prob is not None:
             self.coords = self._get_weighted_mean_pos()
+            if self.one_dim:
+                self.coords[1] = np.argmax(np.max(self.last_hists, axis=-1)) - self.last_hists[0].size//2
         else:
             self.coords = [0.0, 0.0]
         if self.coords[0] < 0.0:
