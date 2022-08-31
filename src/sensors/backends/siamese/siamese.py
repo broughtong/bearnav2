@@ -90,6 +90,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
             zeros = np.zeros(np.size(hist)//2)
             ret.append(np.concatenate([zeros, hist, zeros]))    # siam can do only -0.5 to 0.5 img so extend both sides by sth
         self.histograms = ret
+        return ret
 
     def forward(self, map_features, live_features):
         """
