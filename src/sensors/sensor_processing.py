@@ -26,11 +26,9 @@ class BearnavClassic(SensorFusion):
         return out
 
     def _process_abs_alignment(self, msg):
-        # This is not ideal since we assume certain message type beforhand - however this class should be message agnostic!
-        # msg.map_images.data = [msg.map_images.data[len(msg.map_images.data) // 2]]     # choose only the middle image
-        if len(msg.map_features) > 1:
+        if msg.map_features[0].shape[0] > 1:
             rospy.logwarn("Bearnav classic can process only one image")
-        histogram = self.abs_align_est.displacement_message_callback(msg)
+        histogram = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
         self.alignment = (np.argmax(histogram) - np.size(histogram)//2) / (np.size(histogram)//2)
         rospy.loginfo("Current displacement: " + str(self.alignment))
         # self.publish_align()
@@ -63,7 +61,7 @@ class VisualOnly(SensorFusion):
         raise Exception("Visual only does not support relative alignment")
 
     def _process_abs_alignment(self, msg: SensorsInput):
-        hists = np.array(self.abs_align_est.displacement_message_callback(msg))
+        hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
         hist = np.max(hists, axis=0)
         half_size = np.size(hist) / 2.0
         self.alignment = float(np.argmax(hist) - (np.size(hist) // 2.0)) / half_size  # normalize -1 to 1
@@ -148,17 +146,10 @@ class PF2D(SensorFusion):
         # rospy.logwarn("PF obtained new input")
         # get everything
         curr_time = float(str(msg.header.stamp.secs).zfill(10)[-4:] + str(msg.header.stamp.nsecs).zfill(9)[:4])
-        if self.last_image is not None:
-            msg.map_features.append(self.last_image[0])
-            out = np.array(self.abs_align_est.displacement_message_callback(msg))
-            hists = out[:-1]
-            live_hist = out[-1]
-            curr_img_diff = self._diff_from_hist(live_hist)
-            curr_time_diff = curr_time - self.last_time
-        else:
-            hists = np.array(self.abs_align_est.displacement_message_callback(msg))
-            curr_img_diff = 0.0
-            curr_time_diff = 0.0
+        hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
+        live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
+        curr_img_diff = self._diff_from_hist(live_hist)
+        curr_time_diff = curr_time - self.last_time
         trans = np.array(msg.map_transitions)
         dists = np.array(msg.map_distances)
         time_diffs = np.array(msg.time_transitions)

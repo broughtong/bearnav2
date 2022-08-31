@@ -7,7 +7,7 @@ from backends.odometry.odom_dist import OdometryAbsolute, OdometryRelative
 from backends.siamese.siamese import SiameseCNN
 from backends.crosscorrelation.crosscorr import CrossCorrelation
 from sensor_msgs.msg import Image
-from bearnav2.msg import FeaturesList, ImageList, Features
+from bearnav2.msg import FeaturesList, ImageList, Features, SensorsInput
 import ros_numpy
 
 
@@ -17,33 +17,66 @@ NETWORK_DIVISION = 8
 RESIZE_W = 512
 
 
-def parse_camera_msg(msg):
-    img = ros_numpy.numpify(msg)
-    if "bgr" in msg.encoding:
-        img = img[..., ::-1]  # switch from bgr to rgb
-    img_msg = ros_numpy.msgify(Image, img, "rgb8")
-    return img_msg, img
+class RepresentationMatching:
 
+    def __init__(self):
+        rospy.init_node("sensor_processing")
+        rospy.loginfo("Sensor processing started!")
+        camera_topic = rospy.get_param("~camera_topic")
 
-def produce_representationCB(image):
-    img_msg, img_numpy = parse_camera_msg(image)
-    msg = ImageList([img_msg])
-    features = align_abs._to_feature(msg)
-    # img_feature = Features()
-    # img_feature.shape = img_numpy.shape
-    # img_feature.values = img_numpy.flatten()
-    out = FeaturesList(image.header, [features[0]])# , img_feature])
-    pub.publish(out)
+        # Choose sensor method
+
+        self.align_abs = SiameseCNN(padding=PAD, resize_w=RESIZE_W)
+        self.pub = rospy.Publisher("live_representation", FeaturesList, queue_size=1)
+        self.pub_match = rospy.Publisher("matched_repr", SensorsInput, queue_size=1)
+        self.sub = rospy.Subscriber(camera_topic, Image,
+                                    self.image_parserCB, queue_size=1, buff_size=50000000)
+        self.map_sub = rospy.Subscriber("map_representations", SensorsInput,
+                                        self.map_parserCB, queue_size=1, buff_size=50000000)
+
+        self.last_live = None
+        self.sns_in_msg = None
+        rospy.spin()
+
+    def parse_camera_msg(self, msg):
+        img = ros_numpy.numpify(msg)
+        if "bgr" in msg.encoding:
+            img = img[..., ::-1]  # switch from bgr to rgb
+        img_msg = ros_numpy.msgify(Image, img, "rgb8")
+        return img_msg, img
+
+    def image_parserCB(self, image):
+        img_msg, img_numpy = self.parse_camera_msg(image)
+        msg = ImageList([img_msg])
+        live_feature = self.align_abs._to_feature(msg)
+
+        if self.last_live is None or self.sns_in_msg is None:
+            self.last_live = live_feature[0]
+            out = FeaturesList(image.header, [live_feature[0]])
+            self.pub.publish(out)
+            return
+
+        ext_map = [*self.sns_in_msg.map_features, self.last_live]
+        align_in = SensorsInput()
+        align_in.map_features = ext_map
+        align_in.live_features = live_feature
+        out = self.align_abs.process_msg(align_in)
+        hists = out[:-1]
+        live_hist = out[-1]
+
+        align_out = SensorsInput()
+        align_out.live_features = [Features(live_hist, live_hist.shape)]
+        align_out.map_features = [Features(hists, hists.shape)]
+        align_out.map_distances = self.sns_in_msg.map_distances
+        align_out.map_transitions = self.sns_in_msg.map_transitions
+        align_out.time_transitions = self.sns_in_msg.time_transitions
+
+        self.pub_match.publish(align_out)
+        self.last_live = live_feature[0]
+
+    def map_parserCB(self, sns_in):
+        self.sns_in_msg = sns_in
 
 
 if __name__ == '__main__':
-    rospy.init_node("sensor_processing")
-    rospy.loginfo("Sensor processing started!")
-    camera_topic = rospy.get_param("~camera_topic")
-
-    # Choose sensor method
-    align_abs = SiameseCNN(padding=PAD, resize_w=RESIZE_W)
-    pub = rospy.Publisher("live_representation", FeaturesList, queue_size=1)
-    sub = rospy.Subscriber(camera_topic, Image,
-                           produce_representationCB, queue_size=1, buff_size=50000000)
-    rospy.spin()
+    r = RepresentationMatching()

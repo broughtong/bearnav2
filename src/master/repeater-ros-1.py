@@ -89,10 +89,6 @@ class ActionServer():
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
-        rospy.logdebug("Subscibing to cameras")
-        self.cam_sub = rospy.Subscriber("live_representation", FeaturesList, self.pubSensorsInput, queue_size=1, buff_size=1000000)
-        rospy.logwarn("Representations subscribed")
-
         rospy.logdebug("Connecting to sensors module")
         self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
 
@@ -111,9 +107,7 @@ class ActionServer():
         self.clockGain = req.gain 
         return SetClockGainResponse()
 
-    def pubSensorsInput(self, img_msg):
-        self.img = img_msg.data[0]
-        time_now = img_msg.header
+    def pubSensorsInput(self):
         # rospy.logwarn("Obtained image!")
         if not self.isRepeating:
             return
@@ -121,6 +115,8 @@ class ActionServer():
             # rospy.logwarn(self.map_distances)
             # Load data from the map
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
+            if nearest_map_idx == self.last_nearest_idx:
+                return
             rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
             # allow only move in map by one image per iteration
             # nearest_map_idx = self.last_nearest_idx + np.sign(nearest_map_idx - self.last_nearest_idx)
@@ -136,9 +132,9 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
-            sns_in.header = time_now 
+            sns_in.header = rospy.Time.now()
             sns_in.map_features = map_imgs
-            sns_in.live_features = [self.img]
+            sns_in.live_features = []
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
@@ -171,6 +167,8 @@ class ActionServer():
 
         if self.use_distances:
             self.play_closest_action()
+
+        self.pubSensorsInput()
 
     def goalValid(self, goal):
         
