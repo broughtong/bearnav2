@@ -90,7 +90,7 @@ class ActionServer():
         self.distance_sub = rospy.Subscriber("repeat/output_dist", SensorsOutput, self.distanceCB, queue_size=1)
 
         rospy.logdebug("Connecting to sensors module")
-        self.sensors_pub = rospy.Publisher("sensors_input", SensorsInput, queue_size=1)
+        self.sensors_pub = rospy.Publisher("map_representations", SensorsInput, queue_size=1)
 
         rospy.logdebug("Setting up published for commands")
         self.joy_topic = "map_vel"
@@ -115,7 +115,7 @@ class ActionServer():
             # rospy.logwarn(self.map_distances)
             # Load data from the map
             nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
-            if nearest_map_idx == self.last_nearest_idx:
+            if nearest_map_idx == self.last_nearest_idx and nearest_map_idx != 0:
                 return
             rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
             # allow only move in map by one image per iteration
@@ -132,7 +132,7 @@ class ActionServer():
                 time_trans = []
             # Create message for estimators
             sns_in = SensorsInput()
-            sns_in.header = rospy.Time.now()
+            sns_in.header.stamp = rospy.Time.now()
             sns_in.map_features = map_imgs
             sns_in.live_features = []
             sns_in.map_distances = distances
@@ -151,8 +151,8 @@ class ActionServer():
         if self.isRepeating == False:
             return
         
-        if self.img is None:
-            rospy.logwarn("Warning: no image received")
+        # if self.img is None:
+        #     rospy.logwarn("Warning: no image received")
 
         self.curr_dist = msg.output
 

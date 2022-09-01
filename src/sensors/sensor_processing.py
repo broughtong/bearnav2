@@ -146,6 +146,9 @@ class PF2D(SensorFusion):
         # rospy.logwarn("PF obtained new input")
         # get everything
         curr_time = float(str(msg.header.stamp.secs).zfill(10)[-4:] + str(msg.header.stamp.nsecs).zfill(9)[:4])
+        if self.last_time is None:
+            self.last_time = curr_time
+            return
         hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
         live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         curr_img_diff = self._diff_from_hist(live_hist)
@@ -159,7 +162,7 @@ class PF2D(SensorFusion):
             rospy.logwarn("Invalid input sizes for particle filter!")
             return
 
-        if abs(traveled) < 0.0001 and abs(curr_img_diff) < 0.0001:
+        if abs(traveled) < 0.001 and abs(curr_img_diff) < 0.001:
             # this is when odometry is slower than camera
             self.last_time = curr_time
             rospy.logwarn("Not enough movement detected for particle filter update!\n" + "traveled: " + str(traveled) + "," + str(curr_img_diff))
@@ -188,7 +191,7 @@ class PF2D(SensorFusion):
             align_shift = curr_img_diff + trans_diff
 
             # distance is not shifted because it is shifted already in odometry step
-            particle_shifts = np.concatenate((np.ones(trans_diff.shape), align_shift), axis=1)
+            particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
                                                scale=(self.odom_error * traveled, 0.01 + self.align_error * np.mean(np.abs(align_shift))),
@@ -264,7 +267,7 @@ class PF2D(SensorFusion):
     def _process_rel_distance(self, msg):
         # only increment the distance
         dist = self.rel_dist_est.rel_dist_message_callback(msg)
-        if dist is not None:
+        if dist is not None and dist >= 0.005:
             self.particles[0] += dist
             self._get_coords()
             self.traveled_dist += dist
@@ -290,7 +293,7 @@ class PF2D(SensorFusion):
         if self.particle_prob is not None:
             self.coords = self._get_weighted_mean_pos()
             if self.one_dim:
-                self.coords[1] = np.argmax(np.max(self.last_hists, axis=-1)) - self.last_hists[0].size//2
+                self.coords[1] = (np.argmax(np.max(self.last_hists, axis=0)) - self.last_hists[0].size//2) / self.last_hists[0].size
         else:
             self.coords = [0.0, 0.0]
         if self.coords[0] < 0.0:
@@ -302,6 +305,7 @@ class PF2D(SensorFusion):
         self.alignment = self.coords[1]
         self.distance_std = stds[0]
         self.alignment_std = stds[1]
+        rospy.loginfo(self.coords)
 
     def _diff_from_hist(self, hist):
         half_size = np.size(hist) / 2.0
@@ -312,7 +316,7 @@ class PF2D(SensorFusion):
         return np.mean(self.particles, axis=1)
 
     def _get_weighted_mean_pos(self):
-        weighted_particles = self.particles * np.repeat(self.particle_prob, (2, 1))
+        weighted_particles = self.particles * np.tile(self.particle_prob, (2, 1))
         out = np.sum(weighted_particles, axis=1) / np.sum(self.particle_prob)
         return out
 
