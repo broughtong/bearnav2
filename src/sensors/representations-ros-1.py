@@ -9,6 +9,7 @@ from backends.crosscorrelation.crosscorr import CrossCorrelation
 from sensor_msgs.msg import Image
 from bearnav2.msg import FeaturesList, ImageList, Features, SensorsInput
 import ros_numpy
+import numpy as np
 
 
 # Network hyperparameters
@@ -46,7 +47,7 @@ class RepresentationMatching:
         return img_msg, img
 
     def image_parserCB(self, image):
-        img_msg = self.parse_camera_msg(image)
+        img_msg, _ = self.parse_camera_msg(image)
         msg = ImageList([img_msg])
         live_feature = self.align_abs._to_feature(msg)
 
@@ -61,13 +62,13 @@ class RepresentationMatching:
         align_in.map_features = ext_map
         align_in.live_features = live_feature
         out = self.align_abs.process_msg(align_in)
-        hists = out[:-1]
-        live_hist = out[-1]
+        hists = np.array(out[:-1])
+        live_hist = np.array(out[-1])
 
         align_out = SensorsInput()
         align_out.header = image.header
-        align_out.live_features = [Features(live_hist, live_hist.shape)]
-        align_out.map_features = [Features(hists, hists.shape)]
+        align_out.live_features = [Features(live_hist.flatten(), live_hist.shape)]
+        align_out.map_features = [Features(hists.flatten(), hists.shape)]
         align_out.map_distances = self.sns_in_msg.map_distances
         align_out.map_transitions = self.sns_in_msg.map_transitions
         align_out.time_transitions = self.sns_in_msg.time_transitions

@@ -34,7 +34,7 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         if self.device == t.device("cuda"):
             from torch2trt import torch2trt
             rospy.loginfo("speeding up neural network")
-            tmp = t.ones((1, 3, 320, 512)).cuda().float()
+            tmp = t.ones((1, 3, 384, 512)).cuda().float()
             self.model.backbone = torch2trt(self.model.backbone, [tmp])
 
         self.to_tensor = transforms.ToTensor()
