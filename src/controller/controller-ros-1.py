@@ -43,5 +43,5 @@ if __name__ == "__main__":
     pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=0)
     rospy.Subscriber("map_vel", Twist, callbackVel)
     rospy.Subscriber("repeat/output_align", SensorsOutput, callbackCorr)
-    srv = Server(ControllerConfig, callbackReconfigure)
+    #srv = Server(ControllerConfig, callbackReconfigure)
     rospy.spin()

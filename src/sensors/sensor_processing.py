@@ -305,7 +305,6 @@ class PF2D(SensorFusion):
         self.alignment = self.coords[1]
         self.distance_std = stds[0]
         self.alignment_std = stds[1]
-        rospy.loginfo(self.coords)
 
     def _diff_from_hist(self, hist):
         half_size = np.size(hist) / 2.0
