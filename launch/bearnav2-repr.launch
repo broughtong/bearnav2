@@ -2,7 +2,7 @@
 
     <!-- You should edit these parameters to point to your topics -->
 
-    <arg name="camera_topic" default="/image_proc_resize/image" doc="Camera topic name" />
+    <arg name="camera_topic" default="/usb_cam/image_raw" doc="Camera topic name" />
     <arg name="cmd_vel_pub" default="/nav/cmd_vel" doc="The topic that cmd_vel messages will be published on when replaying a map (can be the same as cmd_vel_sub)" />
     <arg name="cmd_vel_sub" default="/husky_velocity_controller/cmd_vel" doc="The topic that cmd_vel messages will be recorded from when making a map (can be the same as cmd_vel_pub)" />
     <arg name="odom_topic" default="/husky_velocity_controller/odom" doc="The topic that odometry information will be read from" />
