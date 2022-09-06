@@ -194,7 +194,7 @@ class PF2D(SensorFusion):
             particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
             moved_particles = np.transpose(self.particles) + particle_shifts +\
                               np.random.normal(loc=(0, 0),
-                                               scale=(self.odom_error * traveled, 0.01 + self.align_error * np.mean(np.abs(align_shift))),
+                                               scale=(self.odom_error * traveled, 0.025 + self.align_error * np.mean(np.abs(align_shift))),
                                                size=(self.particles.shape[1], 2))
             out.append(moved_particles)
 
@@ -204,13 +204,15 @@ class PF2D(SensorFusion):
 
         # sensor step -------------------------------------------------------------------------------
         # add new particles
-        # new = []
-        # for dist in dists:
-        #     tmp = np.ones((2, self.particles_num // 20)) * dist
-        #     tmp[1, :] = np.random.uniform(low=-0.5, high=0.5, size=(1, self.particles_num//20))
-        #     new.append(tmp.transpose())
-        # new.append(self.particles.transpose())
-        # self.particles = np.concatenate(new).transpose()
+        new = []
+        for dist in dists:
+            tmp = np.ones((2, int(self.particles_num / 10) // 3)) * dist
+            tmp[1, :] = np.random.uniform(low=-0.5, high=0.5, size=(1, int(self.particles_num / 10) // 3 ))
+            new.append(tmp.transpose())
+        new.append(self.particles.transpose())
+        self.particles = np.concatenate(new).transpose()
+        if self.particle_prob is not None:
+            self.particle_prob = np.concatenate([self.particle_prob, np.ones((self.particles[0].size - self.particles_num), ) * np.min(self.particle_prob)])
         # mid_dist = dists[len(dists)//2]
         # dist_var = (abs(mid_dist - dists[0]) + abs(mid_dist - dists[1])) / 2.0
         # new_particles = np.transpose(np.ones((2, self.particles_num//10)).transpose() * np.array((mid_dist, 0)) +\
@@ -243,6 +245,7 @@ class PF2D(SensorFusion):
         chosen_indices = np.random.choice(part_indices, int(self.particles_num/self.particles_frac),
                                           p=self.particle_prob/np.sum(self.particle_prob))
         self.particles = self.particles[:, chosen_indices]
+        self.particle_prob = self.particle_prob[chosen_indices]
 
 
         self.last_image = msg.live_features

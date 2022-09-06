@@ -50,7 +50,7 @@ class ActionServer:
         self.bag = None
         self.lastDistance = 0.0
         self.visual_turn = True
-        self.max_trans = 0.2
+        self.max_trans = 0.3
         self.curr_trans = 0.0
         self.last_saved_dist = None
         self.save_imgs = False
