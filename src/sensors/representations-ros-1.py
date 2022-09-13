@@ -50,14 +50,15 @@ class RepresentationMatching:
         img_msg, _ = self.parse_camera_msg(image)
         msg = ImageList([img_msg])
         live_feature = self.align_abs._to_feature(msg)
+        tmp_sns_in = self.sns_in_msg
 
-        if self.last_live is None or self.sns_in_msg is None:
+        if self.last_live is None or tmp_sns_in is None:
             self.last_live = live_feature[0]
             out = FeaturesList(image.header, [live_feature[0]])
             self.pub.publish(out)
             return
 
-        ext_map = [*self.sns_in_msg.map_features, self.last_live]
+        ext_map = [*tmp_sns_in.map_features, self.last_live]
         align_in = SensorsInput()
         align_in.map_features = ext_map
         align_in.live_features = live_feature
@@ -65,14 +66,36 @@ class RepresentationMatching:
         hists = np.array(out[:-1])
         live_hist = np.array(out[-1])
 
+        # transitions
+        curr_map_id = tmp_sns_in.maps[0]
+        map_num = tmp_sns_in.maps[1]
+        maps = tmp_sns_in.map_features[-map_num:]
+        curr_map = tmp_sns_in.map_features[(len(tmp_sns_in.map_features) - 2) // 2]
+        maps.insert(curr_map_id, curr_map)
+        in1 = []
+        in2 = []
+        for i in range(map_num):
+            for j in range(i, map_num):
+                in1.append(maps[i])
+                in2.append(maps[j])
+        align_in = SensorsInput()
+        align_in.map_features = in1
+        align_in.live_features = in2
+        out = self.align_abs.process_msg(align_in)
+        map_trans = np.max(out, axis=-1)
+
+        # create publish msg
         align_out = SensorsInput()
         align_out.header = image.header
         align_out.live_features = [Features(live_hist.flatten(), live_hist.shape)]
         align_out.map_features = [Features(hists.flatten(), hists.shape)]
-        align_out.map_distances = self.sns_in_msg.map_distances
-        align_out.map_transitions = self.sns_in_msg.map_transitions
-        align_out.time_transitions = self.sns_in_msg.time_transitions
+        align_out.map_distances = tmp_sns_in.map_distances
+        align_out.map_transitions = tmp_sns_in.map_transitions
+        align_out.time_transitions = tmp_sns_in.time_transitions
+        align_out.maps = tmp_sns_in.maps
+        align_out.map_similarity = map_trans
 
+        # rospy.logwarn("sending: " + str(hists.shape) + " " + str(tmp_sns_in.map_distances))
         self.pub_match.publish(align_out)
         self.last_live = live_feature[0]
 

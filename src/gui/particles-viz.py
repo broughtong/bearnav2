@@ -23,11 +23,15 @@ def callback(msg):
     ax = plt.axes()
     ax.title.set_text("Particle filter")
     msg_size = len(msg.data) - 2
-    distances = msg.data[:msg_size//2]
-    displacements = msg.data[msg_size//2:-2]
+    part_size = msg_size//3
+    distances = np.array(msg.data[:part_size])
+    displacements = np.array(msg.data[part_size:part_size*2])
+    maps = np.array(msg.data[part_size*2:-2])
     estimate_x = msg.data[-1]
     estimate_y = msg.data[-2]
-    ax.plot(displacements, distances, "o", alpha=0.2)
+    ax.plot(displacements[maps == 0], distances[maps == 0], "yo", alpha=0.4)
+    ax.plot(displacements[maps == 1], distances[maps == 1], "bo", alpha=0.4)
+    ax.plot(displacements[maps == 2], distances[maps == 2], "ko", alpha=0.4)
     ax.plot(estimate_x, estimate_y, "rx")
     ax.set_xlim([-1.0, 1.0])
     curr_window = np.mean(distances)//3

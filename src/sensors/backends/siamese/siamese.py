@@ -31,11 +31,11 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         self.model = load_model(model, os.path.join(file_path, "./model_eunord.pt")).to(self.device).float()
         self.model = self.model.eval()
 
-        if self.device == t.device("cuda"):
-            from torch2trt import torch2trt
-            rospy.loginfo("speeding up neural network")
-            tmp = t.ones((1, 3, 384, 512)).cuda().float()
-            self.model.backbone = torch2trt(self.model.backbone, [tmp])
+        # if self.device == t.device("cuda"):
+        #     from torch2trt import torch2trt
+        #     rospy.loginfo("speeding up neural network")
+        #     tmp = t.ones((1, 3, 384, 512)).cuda().float()
+        #     self.model.backbone = torch2trt(self.model.backbone, [tmp])
 
         self.to_tensor = transforms.ToTensor()
         self.alignment_processing = False
@@ -99,7 +99,8 @@ class SiameseCNN(DisplacementEstimator, ProbabilityDistanceEstimator,
         """
         tensor1 = self._from_feature(map_features)
         tensor2 = self._from_feature(live_features)
-        tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
+        if tensor1.shape[0] != tensor2.shape[0]:
+            tensor2 = tensor2.repeat(tensor1.shape[0], 1, 1, 1)
         with t.no_grad():
             # only the crosscorrelation here since the representations were already calculated!
             hists = self.model.match_corr(tensor1.float(), tensor2.float(), padding=self.padding)[:, 0, 0]

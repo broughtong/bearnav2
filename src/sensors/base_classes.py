@@ -209,6 +209,7 @@ class SensorFusion(ABC):
         self.alignment = None
         self.distance_std = None
         self.alignment_std = None
+        self.map = 0
 
         self.abs_dist_est = abs_dist_est
         self.rel_dist_est = rel_dist_est
@@ -233,6 +234,7 @@ class SensorFusion(ABC):
         else:
             out.output = 0.0
             out.output_uncertainty = -1.0
+        out.map = self.map
         self.output_dist.publish(out)
 
     def publish_align(self, timer):

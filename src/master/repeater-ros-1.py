@@ -25,32 +25,43 @@ def parse_camera_msg(msg):
     return img_msg
 
 
-def load_map(mappath, images, distances, trans, times):
-    tmp = []
-    for file in list(os.listdir(mappath)):
-        if file.endswith(".npy"):
-            tmp.append(file[:-4].split("_"))
-    rospy.logwarn(str(len(tmp)) + " images found in the map")
-    tmp.sort(key=lambda x: float(x[0]))
-    last_time = None
-    for idx, dist_turn_time in enumerate(tmp):
+def load_map(mappaths, images, distances, trans, times):
+    if "," in mappaths:
+        mappaths = mappaths.split(",")
+    for mappath in mappaths:
+        tmp = []
+        for file in list(os.listdir(mappath)):
+            if file.endswith(".npy"):
+                tmp.append(file[:-4].split("_"))
+        rospy.logwarn(str(len(tmp)) + " images found in the map")
+        tmp.sort(key=lambda x: float(x[0]))
+        last_time = None
+        tmp_images = []
+        tmp_distances = []
+        tmp_trans = []
+        tmp_times = []
+        for idx, dist_turn_time in enumerate(tmp):
 
-        distances.append(float(dist_turn_time[0]))
-        # img = cv2.imread(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + ".jpg"))
-        # img_msg = ros_numpy.msgify(Image, img, "rgb8")
-        feature = Features()
-        with open(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + "_" + dist_turn_time[2] + ".npy"), 'rb') as fp:
-            array = np.load(fp, allow_pickle=False, fix_imports=False)
-            feature.shape = array.shape
-            feature.values = array.flatten()
-        images.append(feature)
-        rospy.loginfo("Loaded feature: " + dist_turn_time[0] + "_" + dist_turn_time[1] + "_" + dist_turn_time[2] + str(".npy"))
-        if idx > 0:
-            trans.append(float(dist_turn_time[1]))
-            times.append(int(dist_turn_time[2]) - int(last_time))
-        last_time = dist_turn_time[2]
-    times[-1] = times[-2]  # to avoid very long period before map end
-    rospy.logwarn("Whole map sucessfully loaded")
+            tmp_distances.append(float(dist_turn_time[0]))
+            # img = cv2.imread(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + ".jpg"))
+            # img_msg = ros_numpy.msgify(Image, img, "rgb8")
+            feature = Features()
+            with open(os.path.join(mappath, dist_turn_time[0] + "_" + dist_turn_time[1] + "_" + dist_turn_time[2] + ".npy"), 'rb') as fp:
+                array = np.load(fp, allow_pickle=False, fix_imports=False)
+                feature.shape = array.shape
+                feature.values = array.flatten()
+            tmp_images.append(feature)
+            rospy.loginfo("Loaded feature: " + dist_turn_time[0] + "_" + dist_turn_time[1] + "_" + dist_turn_time[2] + str(".npy"))
+            if idx > 0:
+                tmp_trans.append(float(dist_turn_time[1]))
+                tmp_times.append(int(dist_turn_time[2]) - int(last_time))
+            last_time = dist_turn_time[2]
+        tmp_times[-1] = tmp_times[-2]  # to avoid very long period before map end
+        images.append(tmp_images)
+        distances.append(tmp_distances)
+        trans.append(tmp_trans)
+        times.append(tmp_times)
+        rospy.logwarn("Whole map " + str(mappath) + " sucessfully loaded")
 
 
 class ActionServer():
@@ -78,6 +89,9 @@ class ActionServer():
         self.use_distances = False
         self.distance_finish_offset = 0.2
         self.last_nearest_idx = 0
+        self.curr_map = 0
+        self.map_num = 0
+        self.last_map = 0
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -114,22 +128,26 @@ class ActionServer():
         if len(self.map_images) > 0:
             # rospy.logwarn(self.map_distances)
             # Load data from the map
-            nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances)))
-            if nearest_map_idx == self.last_nearest_idx and nearest_map_idx != 0:
+            nearest_main_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[self.curr_map])))
+            if nearest_main_map_idx == self.last_nearest_idx and nearest_main_map_idx != 0 and self.curr_map == self.last_map:
                 return
-            rospy.loginfo("matching image " + str(nearest_map_idx) + " at distance " + str(self.curr_dist))
+            rospy.loginfo("matching image " + str(nearest_main_map_idx) + " at distance " + str(self.curr_dist))
             # allow only move in map by one image per iteration
             # nearest_map_idx = self.last_nearest_idx + np.sign(nearest_map_idx - self.last_nearest_idx)
-            lower_bound = max(0, nearest_map_idx - self.map_publish_span)
-            upper_bound = min(nearest_map_idx + self.map_publish_span + 1, len(self.map_distances))
-            map_imgs = self.map_images[lower_bound:upper_bound]
-            distances = self.map_distances[lower_bound:upper_bound]
+            lower_bound = max(0, nearest_main_map_idx - self.map_publish_span)
+            upper_bound = min(nearest_main_map_idx + self.map_publish_span + 1, len(self.map_distances[self.curr_map]))
+            map_imgs = self.map_images[self.curr_map][lower_bound:upper_bound]
+            distances = self.map_distances[self.curr_map][lower_bound:upper_bound]
             if len(self.map_transitions) > 0:
-                transitions = self.map_transitions[lower_bound:upper_bound - 1]
-                time_trans = self.map_times[lower_bound:upper_bound - 1]
+                transitions = self.map_transitions[self.curr_map][lower_bound:upper_bound - 1]
+                time_trans = self.map_times[self.curr_map][lower_bound:upper_bound - 1]
             else:
                 transitions = []
                 time_trans = []
+            if self.map_num > 0:
+                for map_idx in [i for i in range(self.map_num)]:
+                    nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
+                    map_imgs.append(self.map_images[map_idx][nearest_map_idx])
             # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header.stamp = rospy.Time.now()
@@ -138,10 +156,12 @@ class ActionServer():
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
+            sns_in.maps = [self.curr_map, self.map_num]
 
             # rospy.logwarn("message created")
             self.sensors_pub.publish(sns_in)
-            self.last_nearest_idx = nearest_map_idx
+            self.last_nearest_idx = nearest_main_map_idx
+            self.last_map = self.curr_map
             
             # rospy.logwarn("Image published!")
             # DEBUGGING
@@ -155,8 +175,9 @@ class ActionServer():
         #     rospy.logwarn("Warning: no image received")
 
         self.curr_dist = msg.output
+        self.curr_map = msg.map
 
-        if self.curr_dist >= (self.map_distances[-1] - self.distance_finish_offset) and self.use_distances or\
+        if self.curr_dist >= (self.map_distances[self.curr_map][-1] - self.distance_finish_offset) and self.use_distances or\
                 (self.endPosition != 0.0 and self.endPosition < self.curr_dist):
             rospy.logwarn("GOAL REACHED, STOPPING REPEATER")
             self.isRepeating = False
@@ -175,15 +196,15 @@ class ActionServer():
         if goal.mapName == "":
             rospy.logwarn("Goal missing map name")
             return False
-        if not os.path.isdir(goal.mapName):
-            rospy.logwarn("Can't find map directory")
-            return False
-        if not os.path.isfile(os.path.join(goal.mapName, goal.mapName + ".bag")):
-            rospy.logwarn("Can't find commands")
-            return False
-        if not os.path.isfile(os.path.join(goal.mapName, "params")):
-            rospy.logwarn("Can't find params")
-            return False
+        # if not os.path.isdir(goal.mapName):
+        #     rospy.logwarn("Can't find map directory")
+        #     return False
+        # if not os.path.isfile(os.path.join(goal.mapName, goal.mapName + ".bag")):
+        #     rospy.logwarn("Can't find commands")
+        #     return False
+        # if not os.path.isfile(os.path.join(goal.mapName, "params")):
+        #     rospy.logwarn("Can't find params")
+        #     return False
         if goal.startPos < 0:
             rospy.logwarn("Invalid (negative) start position). Use zero to start at the beginning") 
             return False
@@ -202,7 +223,8 @@ class ActionServer():
             self.server.set_succeeded(result)
             return
 
-        self.parseParams(os.path.join(goal.mapName, "params"))
+        map_name = goal.mapName.split(",")[0]
+        self.parseParams(os.path.join(map_name, "params"))
 
         self.map_publish_span = int(goal.imagePub)
 
@@ -223,9 +245,11 @@ class ActionServer():
         map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances,
                                                              self.map_transitions, self.map_times))
         map_loader.start()
+        map_loader.join()
+        self.map_num = len(self.map_images)
 
         rospy.logwarn("Starting repeat")
-        self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "r")
+        self.bag = rosbag.Bag(os.path.join(map_name, map_name + ".bag"), "r")
         self.mapName = goal.mapName
         self.use_distances = goal.useDist
     
