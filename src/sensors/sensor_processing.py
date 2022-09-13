@@ -116,6 +116,7 @@ class PF2D(SensorFusion):
         self.coords = None
         self.last_hists = None
         self.map = 0
+        self.last_map_transition_time = rospy.Time.now()
 
         self._min_align_noise = 0.01
         self._clip_surround = 0.5
@@ -130,7 +131,7 @@ class PF2D(SensorFusion):
         var = (self.odom_init_std, self.align_init_std, 0)
         dst = self.distance
         self.particles = np.transpose(np.ones((3, self.particles_num)).transpose() * np.array((dst, 0, 0)) +\
-                                      np.random.normal(loc=(0, 0, 0), scale=var, size=(self.particles_num, 3)))
+                                      self.rng.normal(loc=(0, 0, 0), scale=var, size=(self.particles_num, 3)))
         self.particles = self.particles - np.mean(self.particles, axis=-1, keepdims=True)
         self.particles[2] = np.random.randint(low=0, high=3, size=(self.particles_num,))
         self.last_image = None
@@ -153,7 +154,9 @@ class PF2D(SensorFusion):
                 transitions[i, j] = array[curr_idx]
                 transitions[j, i] = array[curr_idx]
                 curr_idx += 1
-        transitions /= np.sum(transitions, axis=-1, keepdims=True)
+        for i in range(map_num):
+            transitions[i] = self._numpy_softmax(transitions[i])
+        rospy.logwarn(transitions)
         return transitions
 
     def _process_abs_alignment(self, msg):
@@ -180,7 +183,6 @@ class PF2D(SensorFusion):
         map_vals = list(np.max(all_hists[-map_diffs:], axis=-1))
         map_matrix = self._create_trans_matrix(msg.map_similarity, msg.maps[1])
         rospy.logwarn(map_vals)
-        rospy.logwarn(msg.maps)
 
         # if len(hists) < 2 or len(trans) != len(hists) - 1 or len(dists) != len(hists) or len(trans) == 0:
         #     rospy.logwarn("Invalid input sizes for particle filter!")
@@ -216,27 +218,31 @@ class PF2D(SensorFusion):
         # distance is not shifted because it is shifted already in odometry step
         particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
         moved_particles = np.transpose(self.particles[:2]) + particle_shifts +\
-                          np.random.normal(loc=(0, 0),
+                                       self.rng.normal(loc=(0, 0),
                                            scale=(self.odom_error * traveled, 0.025 + self.align_error * np.mean(np.abs(align_shift))),
                                            size=(self.particles.shape[1], 2))
         out.append(moved_particles)
-
         self.particles[:2] = moved_particles.transpose()
-        particle_maps = self.particles[2]
-        for map_id in range(msg.maps[1]): # move particles in map space
-            particle_maps[particle_maps == map_id] = np.random.choice(np.arange(msg.maps[1]),
-                                                                      np.sum(particle_maps == map_id),
-                                                                      p=map_matrix[map_id])
-        # self.particles[2] = particle_maps
 
+        random_indices = self.rng.choice(np.arange(self.particles_num),
+                                         int(self.particles_num // 10))
+        random_particles = self.particles[2, random_indices]
+        if (rospy.Time.now() - self.last_map_transition_time).to_sec() > 3.0:
+            # move particles in map space, but not too often
+            self.last_map_transition_time = rospy.Time.now()
+            for map_id in range(msg.maps[1]):
+                random_particles[random_particles == map_id] = self.rng.choice(np.arange(msg.maps[1]),
+                                                                               int(np.sum(random_particles == map_id)),
+                                                                               p=map_matrix[map_id])
+        self.particles[2, random_indices] = random_particles
         # rospy.logwarn("Motion step finished!")
 
         # sensor step -------------------------------------------------------------------------------
         # add new particles
         new = []
         tmp = np.zeros((3, int(self.particles_num / 10)))
-        tmp[0, :] = np.random.uniform(low=dists[0], high=dists[1], size=(1, int(self.particles_num / 10)))
-        tmp[1, :] = np.random.uniform(low=-0.5, high=0.5, size=(1, int(self.particles_num / 10)))
+        tmp[0, :] = self.rng.uniform(low=dists[0], high=dists[1], size=(1, int(self.particles_num / 10)))
+        tmp[1, :] = self.rng.uniform(low=-0.5, high=0.5, size=(1, int(self.particles_num / 10)))
         tmp[2, :] = np.random.randint(low=0, high=len(map_vals), size=(1, int(self.particles_num / 10)))
         new.append(tmp.transpose())
         new.append(self.particles.transpose())
@@ -264,13 +270,10 @@ class PF2D(SensorFusion):
         rospy.logwarn((np.array(map_vals)))
 
         # get probabilites of particles
-        self.particle_prob = self.particle_prob * (np.array([0.5, 0.7, 0.9]))[np.array(self.particles[2], dtype=int)]
+        self.particle_prob = self.particle_prob * (np.array(map_vals))[np.array(self.particles[2], dtype=int)]
         # self.particle_prob = self._numpy_softmax(self.particle_prob)
         # particle_prob -= particle_prob.min()
         # particle_prob /= particle_prob.sum()
-        rospy.logwarn(np.sum(self.particle_prob[self.particles[2] == 0]))
-        rospy.logwarn(np.sum(self.particle_prob[self.particles[2] == 1]))
-        rospy.logwarn(np.sum(self.particle_prob[self.particles[2] == 2]))
         # choose best candidates and reduce the number of particles
         chosen_indices = self.rng.choice(np.shape(self.particles)[1], int(self.particles_num),
                                          p=self.particle_prob/np.sum(self.particle_prob))
@@ -278,7 +281,6 @@ class PF2D(SensorFusion):
 
         self.particle_prob = self.particle_prob[chosen_indices]
         self.particles = self.particles[:, chosen_indices]
-        rospy.logwarn(np.sum(self.particles[2, :] == 2))
 
         self.last_image = msg.live_features
         self.last_time = curr_time
@@ -330,6 +332,13 @@ class PF2D(SensorFusion):
             self.coords = self._get_weighted_mean_pos(tmp_particles)
             if self.one_dim:
                 self.coords[1] = (np.argmax(np.max(self.last_hists, axis=0)) - self.last_hists[0].size//2) / self.last_hists[0].size
+            maps = []
+            for i in range(3):  # TODO: magic constant - number of maps
+                maps.append(np.sum(self.particle_prob[self.particles[2] == i]))
+            ind = np.argmax(maps)
+            rospy.logwarn(maps)
+            self.map = ind
+
         else:
             self.coords = [0.0, 0.0]
         if self.coords[0] < 0.0:
@@ -341,10 +350,7 @@ class PF2D(SensorFusion):
         self.alignment = self.coords[1]
         self.distance_std = stds[0]
         self.alignment_std = stds[1]
-        values, counts = np.unique(tmp_particles[2], return_counts=True)
-        rospy.logwarn("counts:" + str(counts) + " " + str(values))
-        ind = np.argmax(counts)
-        self.map = int(values[ind])
+
 
     def _diff_from_hist(self, hist):
         half_size = np.size(hist) / 2.0
