@@ -224,17 +224,17 @@ class PF2D(SensorFusion):
         out.append(moved_particles)
         self.particles[:2] = moved_particles.transpose()
 
-        random_indices = self.rng.choice(np.arange(self.particles_num),
-                                         int(self.particles_num // 10))
-        random_particles = self.particles[2, random_indices]
-        if (rospy.Time.now() - self.last_map_transition_time).to_sec() > 3.0:
+        if (rospy.Time.now() - self.last_map_transition_time).to_sec() > 5.0:
+            random_indices = self.rng.choice(np.arange(self.particles_num),
+                                             int(self.particles_num // 5))
+            random_particles = self.particles[2, random_indices]
             # move particles in map space, but not too often
             self.last_map_transition_time = rospy.Time.now()
             for map_id in range(msg.maps[1]):
                 random_particles[random_particles == map_id] = self.rng.choice(np.arange(msg.maps[1]),
                                                                                int(np.sum(random_particles == map_id)),
                                                                                p=map_matrix[map_id])
-        self.particles[2, random_indices] = random_particles
+            self.particles[2, random_indices] = random_particles
         # rospy.logwarn("Motion step finished!")
 
         # sensor step -------------------------------------------------------------------------------

@@ -15,6 +15,7 @@ def pose_to_angle(pose_msg):
     yaw = euler[2]
     return yaw
 
+
 class OdometryAbsolute(AbsoluteDistanceEstimator):
 
     def __init__(self):
@@ -69,7 +70,10 @@ class OdometryRelative(RelativeDistanceEstimator):
         yaw2 = pose_to_angle(msg.pose)
         dturn = min((2 * 3.16) - abs(yaw1 - yaw2), abs(yaw1 - yaw2))
         self.last_odom = msg
-        return (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5 # + abs(dturn)
+        ret = (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+        if ret > 7.0: # for rosbag switching
+            return 1.0
+        return ret  # + abs(dturn)
 
     def health_check(self) -> bool:
         return True

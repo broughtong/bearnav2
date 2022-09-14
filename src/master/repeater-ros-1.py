@@ -58,6 +58,12 @@ def load_map(mappaths, images, distances, trans, times):
             last_time = dist_turn_time[2]
         tmp_times[-1] = tmp_times[-2]  # to avoid very long period before map end
         images.append(tmp_images)
+        if len(distances) > 0:
+            # TODO remove hotfix
+            last_dist = distances[0][-1]
+            curr_last_dist = tmp_distances[-1]
+            frac = last_dist / curr_last_dist
+            tmp_distances = list(np.array(tmp_distances) * frac)
         distances.append(tmp_distances)
         trans.append(tmp_trans)
         times.append(tmp_times)
