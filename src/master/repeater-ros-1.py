@@ -135,6 +135,7 @@ class ActionServer():
             # rospy.logwarn(self.map_distances)
             # Load data from the map
             nearest_main_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[self.curr_map])))
+            nearest_dist = np.array(self.map_distances[self.curr_map])
             if nearest_main_map_idx == self.last_nearest_idx and nearest_main_map_idx != 0 and self.curr_map == self.last_map:
                 return
             rospy.loginfo("matching image " + str(nearest_main_map_idx) + " at distance " + str(self.curr_dist))
@@ -142,8 +143,10 @@ class ActionServer():
             # nearest_map_idx = self.last_nearest_idx + np.sign(nearest_map_idx - self.last_nearest_idx)
             lower_bound = max(0, nearest_main_map_idx - self.map_publish_span)
             upper_bound = min(nearest_main_map_idx + self.map_publish_span + 1, len(self.map_distances[self.curr_map]))
-            map_imgs = self.map_images[self.curr_map][lower_bound:upper_bound]
+            live_imgs = self.map_images[self.curr_map][lower_bound:upper_bound]
+            map_imgs = []
             distances = self.map_distances[self.curr_map][lower_bound:upper_bound]
+            nearest_dist = list(distances).index(nearest_dist)
             if len(self.map_transitions) > 0:
                 transitions = self.map_transitions[self.curr_map][lower_bound:upper_bound - 1]
                 time_trans = self.map_times[self.curr_map][lower_bound:upper_bound - 1]
@@ -152,17 +155,18 @@ class ActionServer():
                 time_trans = []
             if self.map_num > 0:
                 for map_idx in [i for i in range(self.map_num)]:
-                    nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
-                    map_imgs.append(self.map_images[map_idx][nearest_map_idx])
+                    if map_idx != self.curr_map:
+                        nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
+                        map_imgs.append(self.map_images[map_idx][nearest_map_idx])
             # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header.stamp = rospy.Time.now()
             sns_in.map_features = map_imgs
-            sns_in.live_features = []
+            sns_in.live_features = live_imgs
             sns_in.map_distances = distances
             sns_in.map_transitions = transitions
             sns_in.time_transitions = time_trans
-            sns_in.maps = [self.curr_map, self.map_num]
+            sns_in.maps = [self.curr_map, self.map_num, nearest_dist]
 
             # rospy.logwarn("message created")
             self.sensors_pub.publish(sns_in)

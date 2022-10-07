@@ -58,42 +58,28 @@ class RepresentationMatching:
             self.pub.publish(out)
             return
 
-        ext_map = [*tmp_sns_in.map_features, self.last_live]
+        # match live vs. live map, live vs last live, live vs maps
+        ext_map = [*tmp_sns_in.live_features, self.last_live, *tmp_sns_in.map_features]
         align_in = SensorsInput()
         align_in.map_features = ext_map
         align_in.live_features = live_feature
         out = self.align_abs.process_msg(align_in)
-        hists = np.array(out[:-1])
-        live_hist = np.array(out[-1])
-
-        # transitions
-        curr_map_id = tmp_sns_in.maps[0]
-        map_num = tmp_sns_in.maps[1]
-        maps = tmp_sns_in.map_features[-map_num:]
-        curr_map = tmp_sns_in.map_features[(len(tmp_sns_in.map_features) - 2) // 2]
-        maps.insert(curr_map_id, curr_map)
-        in1 = []
-        in2 = []
-        for i in range(map_num):
-            for j in range(i, map_num):
-                in1.append(maps[i])
-                in2.append(maps[j])
-        align_in = SensorsInput()
-        align_in.map_features = in1
-        align_in.live_features = in2
-        out = self.align_abs.process_msg(align_in)
-        map_trans = np.max(out, axis=-1)
+        # decode these
+        tmp_map_hists = list(out[tmp_sns_in.map_indices[1]:])
+        tmp_map_hists.insert(out[tmp_sns_in.map_indices[2]], tmp_sns_in.map_indices[0])
+        map_hist = np.array(tmp_map_hists)     # all maps vs live img
+        live_hist = np.array(out[:tmp_sns_in.map_indices[1]])  # all live map distances vs live img
 
         # create publish msg
         align_out = SensorsInput()
         align_out.header = image.header
         align_out.live_features = [Features(live_hist.flatten(), live_hist.shape)]
-        align_out.map_features = [Features(hists.flatten(), hists.shape)]
+        align_out.map_features = [Features(map_hist.flatten(), map_hist.shape)]
         align_out.map_distances = tmp_sns_in.map_distances
         align_out.map_transitions = tmp_sns_in.map_transitions
         align_out.time_transitions = tmp_sns_in.time_transitions
-        align_out.maps = tmp_sns_in.maps
-        align_out.map_similarity = map_trans
+        align_out.map_indices = tmp_sns_in.map_indices
+        align_out.map_similarity = tmp_sns_in.map_similarity    # TODO: this is not received from repeater yet!
 
         # rospy.logwarn("sending: " + str(hists.shape) + " " + str(tmp_sns_in.map_distances))
         self.pub_match.publish(align_out)

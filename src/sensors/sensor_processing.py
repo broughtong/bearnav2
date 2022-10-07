@@ -28,7 +28,7 @@ class BearnavClassic(SensorFusion):
     def _process_abs_alignment(self, msg):
         if msg.map_features[0].shape[0] > 1:
             rospy.logwarn("Bearnav classic can process only one image")
-        histogram = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
+        histogram = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         self.alignment = (np.argmax(histogram) - np.size(histogram)//2) / (np.size(histogram)//2)
         rospy.loginfo("Current displacement: " + str(self.alignment))
         # self.publish_align()
@@ -61,7 +61,7 @@ class VisualOnly(SensorFusion):
         raise Exception("Visual only does not support relative alignment")
 
     def _process_abs_alignment(self, msg: SensorsInput):
-        hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
+        hists = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hist = np.max(hists, axis=0)
         half_size = np.size(hist) / 2.0
         self.alignment = float(np.argmax(hist) - (np.size(hist) // 2.0)) / half_size  # normalize -1 to 1
@@ -88,6 +88,7 @@ class VisualOnly(SensorFusion):
 class PF2D(SensorFusion):
     # First dimension - traveled distance
     # Second dimension - alignment
+    # Third dimension - maps
 
     def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
                  align_error: float, align_init_std: float, particles_frac: int, debug: bool,
@@ -133,6 +134,7 @@ class PF2D(SensorFusion):
         self.particles = np.transpose(np.ones((3, self.particles_num)).transpose() * np.array((dst, 0, 0)) +\
                                       self.rng.normal(loc=(0, 0, 0), scale=var, size=(self.particles_num, 3)))
         self.particles = self.particles - np.mean(self.particles, axis=-1, keepdims=True)
+        # TODO: remove magic constant here (map num) - probably need to edit SetDist msg
         self.particles[2] = np.random.randint(low=0, high=3, size=(self.particles_num,))
         self.last_image = None
         self._get_coords()
@@ -166,10 +168,10 @@ class PF2D(SensorFusion):
         if self.last_time is None:
             self.last_time = curr_time
             return
-        map_diffs = msg.maps[1]
-        all_hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
-        hists = all_hists[:-map_diffs]
-        live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
+        map_hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
+        live_hists = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
+        live_hist = live_hists[-1]
+        hists = live_hists[:-1]
         curr_img_diff = self._diff_from_hist(live_hist)
         curr_time_diff = curr_time - self.last_time
         trans = np.array(msg.map_transitions)
@@ -177,11 +179,9 @@ class PF2D(SensorFusion):
         time_diffs = np.array(msg.time_transitions)
         traveled = self.traveled_dist
 
-        rospy.logwarn(str(hists.shape) + ":" + str(all_hists.shape) + ":" + str(dists))
-
         # handle multiple maps
-        map_vals = list(np.max(all_hists[-map_diffs:], axis=-1))
-        map_matrix = self._create_trans_matrix(msg.map_similarity, msg.maps[1])
+        map_vals = list(np.max(map_hists, axis=-1))
+        map_matrix = msg.map_transitions
         rospy.logwarn(map_vals)
 
         # if len(hists) < 2 or len(trans) != len(hists) - 1 or len(dists) != len(hists) or len(trans) == 0:
@@ -326,6 +326,7 @@ class PF2D(SensorFusion):
         return np.array(np.where(mask.any(axis=axis), mask.argmax(axis=axis), invalid_val))
 
     def _get_coords(self):
+        # TODO: implement better estimate - histogram voting!
         # coords = np.mean(self.particles, axis=1)
         tmp_particles = self.particles
         if self.particle_prob is not None:
