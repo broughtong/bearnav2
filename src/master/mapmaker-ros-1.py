@@ -25,16 +25,22 @@ def numpy_to_feature(array):
     return Features(array.flatten(), array.shape)
 
 
-def save_img(img_repr, image, header, filename, save_img):
-    time_str = str(header.stamp.secs).zfill(10)[-4:] + str(header.stamp.nsecs).zfill(9)[:4]
-    filename = filename + "_" + time_str
+def save_img(img_repr, image, header, map_name, curr_dist, curr_hist, curr_align, source_map, save_img):
+    # time_str = str(header.stamp.secs).zfill(10)[-4:] + str(header.stamp.nsecs).zfill(9)[:4]
+    filename = str(map_name) + "/" + str(curr_dist)
+    struct_save = {"representation": img_repr, "timestamp": header.stamp, "diff_hist": None, "source_map_align": None}
+    if curr_hist is not None:
+        struct_save["diff_hist"] = curr_hist
+    if curr_align is not None and source_map is not None:
+        struct_save["source_map_align"] = (source_map, curr_align)
     with open(filename + ".npy", 'wb') as fp:
-        np.save(fp, img_repr, allow_pickle=False, fix_imports=False)
+        np.save(fp, struct_save, fix_imports=False)
     if save_img:
         if "rgb" in image.encoding: 
             cv2.imwrite(filename + ".jpg", cv2.cvtColor(ros_numpy.numpify(image), cv2.COLOR_RGB2BGR))
         else:
             cv2.imwrite(filename + ".jpg", ros_numpy.numpify(image))
+
 
 class ActionServer:
 
@@ -52,6 +58,7 @@ class ActionServer:
         self.visual_turn = True
         self.max_trans = 0.3
         self.curr_trans = 0.0
+        self.curr_hist = None
         self.last_saved_dist = None
         self.save_imgs = False
         self.header = None
@@ -73,8 +80,8 @@ class ActionServer:
         rospy.logdebug("Resetting distance node")
         self.distance_reset_srv = rospy.ServiceProxy("teach/set_dist", SetDist)
         self.align_reset_srv = rospy.ServiceProxy("repeat/set_align", SetDist)
-        self.distance_reset_srv(0.0)
-        self.align_reset_srv(0.0)
+        self.distance_reset_srv(0.0, 1)
+        self.align_reset_srv(0.0, 1)
 
         rospy.logdebug("Subscibing to commands")
         self.joy_topic = rospy.get_param("~cmd_vel_topic")
@@ -93,14 +100,17 @@ class ActionServer:
         # here it subscribes necessary topics
         rospy.logdebug("Subscibing to cameras")
         self.camera_topic = rospy.get_param("~camera_topic")
-        # self.cam_sub = rospy.Subscriber(self.camera_topic, Image, self.imageCB, queue_size=1, buff_size=20000000)
-        # self.distance_sub = rospy.Subscriber("teach/output_dist", SensorsOutput, self.distanceCB, queue_size=10)
+
         # synchronize necessary topics!
+        rospy.logwarn("Mapmaker starting subscribers")
         repr_sub = Subscriber("live_representation", FeaturesList)
-        distance_sub = Subscriber("teach/output_dist", SensorsOutput)
         cam_sub = Subscriber(self.camera_topic, Image)
-        synced_topics = ApproximateTimeSynchronizer([repr_sub, distance_sub, cam_sub], queue_size=2, slop=0.2)
-        synced_topics.registerCallback(self.distance_imgCB)
+        distance_sub = Subscriber("teach/output_dist", SensorsOutput)
+        self.synced_topics = ApproximateTimeSynchronizer([repr_sub, distance_sub, cam_sub], queue_size=2, slop=0.2)
+        self.synced_topics.registerCallback(self.distance_imgCB)
+
+        self.curr_alignment = None
+        self.source_map = None
 
         rospy.logwarn("Mapmaker started, awaiting goal")
 
@@ -110,7 +120,13 @@ class ActionServer:
             rospy.logdebug(f"Adding misc from {topicName}")
             self.bag.write(topicName, msg)
 
+    def distance_wrapper(self, repr_msg, dist_msg, align_msg, img):
+        self.curr_alignment = align_msg.output
+        self.distance_imgCB(repr_msg, dist_msg, img)
+
     def distance_imgCB(self, repr_msg, dist_msg, img):
+        if self.img_features is None:
+            rospy.logwarn("Mapmaker successfuly received images")
         self.img_features = np.array(repr_msg.data[0].values).reshape(repr_msg.data[0].shape)
         self.img_msg = img
         self.header = repr_msg.header
@@ -130,18 +146,20 @@ class ActionServer:
                 resp1 = self.local_align(srv_msg)
                 hist = resp1.histograms[0].data
                 half_size = np.size(hist)/2.0
+                self.curr_hist = hist
                 self.curr_trans = -float(np.argmax(hist) - (np.size(hist)//2.0)) / half_size  # normalize -1 to 1
                 # rospy.logwarn(self.curr_trans)
             except Exception as e:
                 rospy.logwarn("Service call failed: %s" % e)
         else:
             self.curr_trans = 0.0
+            self.curr_hist = None
 
         # eventually save the image if conditions fulfilled ------------------------------------
         if dist > self.nextStep or abs(self.curr_trans) > self.max_trans:
             self.nextStep = dist + self.mapStep
-            filename = os.path.join(self.mapName, str(dist) + "_" + str(self.curr_trans))
-            save_img(self.img_features, self.img_msg, self.header, filename, self.save_imgs)  # with resizing
+            save_img(self.img_features, self.img_msg, self.header, self.mapName, dist, self.curr_hist,
+                     self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
             rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
             self.cum_turn = 0.0
             self.last_img_features = self.img_features
@@ -157,6 +175,15 @@ class ActionServer:
             self.bag.write("recorded_actions", save_msg)
 
     def actionCB(self, goal):
+
+        if goal.sourceMap != "":
+            # sync different topics when repeating using source map
+            self.source_map = goal.sourceMap
+            distance_sub = Subscriber("repeat/output_dist", SensorsOutput)
+            align_sub = Subscriber("repeat/output_align", SensorsOutput)
+            self.synced_topics = ApproximateTimeSynchronizer([repr_sub, distance_sub, align_sub, cam_sub], queue_size=2, slop=0.2)
+            self.synced_topics.registerCallback(self.distance_wrapper)
+            rospy.logwarn("mapmaker listening to distance callback " + goal.sourceMap)
 
         self.save_imgs = goal.saveImgsForViz
         result = MapMakerResult()
@@ -176,7 +203,7 @@ class ActionServer:
             self.isMapping = False
             self.img_msg = None
             self.last_img_msg = None
-            self.distance_reset_srv(0.0)
+            self.distance_reset_srv(0.0, 1)
             self.mapStep = goal.mapStep
             if self.mapStep <= 0.0:
                 rospy.logwarn("Record step is not positive number - changing to 1.0m")
@@ -200,11 +227,11 @@ class ActionServer:
             result.success = True
             self.server.set_succeeded(result)
         else:
-            rospy.logdebug("Creating final wp")
+            rospy.loginfo("Creating final wp")
             # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             # cv2.imwrite(filename, self.img)
-            filename = os.path.join(self.mapName, str(self.lastDistance) + "_" + str(self.curr_trans))
-            save_img(self.img_features, self.img_msg, self.header, filename, self.save_imgs)  # with resizing
+            save_img(self.img_features, self.img_msg, self.header, self.mapName,
+                     self.lastDistance, self.curr_hist, self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
             rospy.logwarn("Stopping Mapping")
             rospy.loginfo(f"Map saved under: '{os.path.join(os.path.expanduser('~'), '.ros', self.mapName)}'")
             time.sleep(2)
@@ -221,6 +248,7 @@ class ActionServer:
         self.isMapping = False
         if self.bag is not None:
             self.bag.close()
+
 
 if __name__ == '__main__':
     rospy.init_node("mapmaker_server")

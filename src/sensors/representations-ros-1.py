@@ -64,20 +64,26 @@ class RepresentationMatching:
         align_in.map_features = ext_map
         align_in.live_features = live_feature
         out = self.align_abs.process_msg(align_in)
+
         # decode these
-        tmp_map_hists = list(out[tmp_sns_in.map_indices[1]:])
-        tmp_map_hists.insert(out[tmp_sns_in.map_indices[2]], tmp_sns_in.map_indices[0])
-        map_hist = np.array(tmp_map_hists)     # all maps vs live img
-        live_hist = np.array(out[:tmp_sns_in.map_indices[1]])  # all live map distances vs live img
+        align_out = SensorsInput()
+
+        if tmp_sns_in.map_indices[1] > 1:
+            tmp_map_hists = list(out[tmp_sns_in.map_indices[1]:])
+            tmp_map_hists.insert(out[tmp_sns_in.map_indices[2]], tmp_sns_in.map_indices[0])
+            map_hist = np.array(tmp_map_hists)     # all maps vs live img
+            align_out.map_features = [Features(map_hist.flatten(), map_hist.shape)]
+            live_hist = np.array(out[:tmp_sns_in.map_indices[1]])  # all live map distances vs live img
+        else:
+            align_out.map_features = []
+            live_hist = np.array(out)
 
         # create publish msg
-        align_out = SensorsInput()
         align_out.header = image.header
         align_out.live_features = [Features(live_hist.flatten(), live_hist.shape)]
-        align_out.map_features = [Features(map_hist.flatten(), map_hist.shape)]
         align_out.map_distances = tmp_sns_in.map_distances
         align_out.map_transitions = tmp_sns_in.map_transitions
-        align_out.time_transitions = tmp_sns_in.time_transitions
+        align_out.map_timestamps = tmp_sns_in.map_timestamps
         align_out.map_indices = tmp_sns_in.map_indices
         align_out.map_similarity = tmp_sns_in.map_similarity    # TODO: this is not received from repeater yet!
 
