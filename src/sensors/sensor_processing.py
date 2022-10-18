@@ -368,7 +368,7 @@ class PF2D(SensorFusion):
             for i in range(self.map_num):  # TODO: magic constant - number of maps
                 maps.append(np.sum(self.particle_prob[self.particles[2] == i]))
             ind = np.argmax(maps)
-            rospy.logwarn(maps)
+            # rospy.logwarn(maps)
             self.map = ind
 
         else:
