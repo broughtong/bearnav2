@@ -26,7 +26,7 @@ def parse_camera_msg(msg):
     return img_msg
 
 
-def load_map(mappaths, images, distances, trans, times):
+def load_map(mappaths, images, distances, trans, times, source_align):
     if "," in mappaths:
         mappaths = mappaths.split(",")
     else:
@@ -42,6 +42,7 @@ def load_map(mappaths, images, distances, trans, times):
         tmp_distances = []
         tmp_trans = []
         tmp_times = []
+        tmp_align = []
 
         for idx, dist in enumerate(tmp):
 
@@ -52,21 +53,27 @@ def load_map(mappaths, images, distances, trans, times):
                 r = map_point["representation"]
                 ts = map_point["timestamp"]
                 diff_hist = map_point["diff_hist"]
-                if map_idx > 0 and map_point["source_map_align"] != mappaths[0]:
-                    rospy.logwarn("Multimap with invalid target!" + str(mappath))
-                    raise Exception("Invalid map combination")
+                if map_point["source_map_align"] is not None:
+                    align = map_point["source_map_align"][1]
+                    if map_idx > 0 and map_point["source_map_align"][0] != mappaths[0]:
+                        rospy.logwarn("Multimap with invalid target!" + str(mappath))
+                        raise Exception("Invalid map combination")
+                else:
+                    align = 0
                 feature.shape = r.shape
                 feature.values = list(r.flatten())
                 tmp_images.append(feature)
                 tmp_times.append(ts)
+                tmp_align.append(align)
                 if diff_hist is not None:
                     tmp_trans.append(diff_hist)
                 rospy.loginfo("Loaded feature: " + dist + str(".npy"))
-        tmp_times[-1] = tmp_times[-2]  # to avoid very long period before map end
+        tmp_times[-1] = tmp_times[-2] + (tmp_times[-2] - tmp_times[-3])  # to avoid very long period before map end
         images.append(tmp_images)
         distances.append(tmp_distances)
         trans.append(tmp_trans)
         times.append(tmp_times)
+        source_align.append(tmp_align)
         rospy.logwarn("Whole map " + str(mappath) + " sucessfully loaded")
 
 
@@ -87,6 +94,7 @@ class ActionServer():
         self.curr_dist = 0.0
         self.map_images = []
         self.map_distances = []
+        self.map_alignments = []
         self.action_dists = None
         self.map_times = []
         self.actions = []
@@ -136,7 +144,7 @@ class ActionServer():
             # rospy.logwarn(self.map_distances)
             # Load data from the map
             nearest_main_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[self.curr_map])))
-            nearest_dist = np.array(self.map_distances)[self.curr_map, nearest_main_map_idx]
+            nearest_dist = self.map_distances[self.curr_map][nearest_main_map_idx]
             if nearest_main_map_idx == self.last_nearest_idx and nearest_main_map_idx != 0 and self.curr_map == self.last_map:
                 return
             rospy.loginfo("matching image " + str(nearest_main_map_idx) + " at distance " + str(self.curr_dist))
@@ -149,6 +157,7 @@ class ActionServer():
             distances = self.map_distances[self.curr_map][lower_bound:upper_bound]
             nearest_dist = list(distances).index(nearest_dist)
             timestamps = self.map_times[self.curr_map][lower_bound:upper_bound]
+            offsets = self.map_alignments[self.curr_map][lower_bound:upper_bound]
             if len(self.map_transitions) > 0:
                 transitions = np.array(self.map_transitions[self.curr_map][lower_bound:upper_bound - 1])
             else:
@@ -168,6 +177,7 @@ class ActionServer():
             sns_in.map_timestamps = timestamps
             sns_in.map_indices = [self.curr_map, self.map_num, nearest_dist]
             # TODO: sns_in.map_similarity
+            sns_in.map_offset = offsets
 
             # rospy.logwarn("message created")
             self.sensors_pub.publish(sns_in)
@@ -253,9 +263,10 @@ class ActionServer():
         self.actions = []
         self.map_transitions = []
         self.last_closest_idx = 0
+        self.map_alignments = []
 
         map_loader = threading.Thread(target=load_map, args=(goal.mapName, self.map_images, self.map_distances,
-                                                             self.map_transitions, self.map_times))
+                                                             self.map_transitions, self.map_times, self.map_alignments))
         map_loader.start()
         # TODO: Here we are waiting for th thread to join, so it does not make sense to use separate thread
         map_loader.join()

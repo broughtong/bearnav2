@@ -52,10 +52,11 @@ class RepresentationMatching:
         live_feature = self.align_abs._to_feature(msg)
         tmp_sns_in = self.sns_in_msg
 
-        if self.last_live is None or tmp_sns_in is None:
-            self.last_live = live_feature[0]
-            out = FeaturesList(image.header, [live_feature[0]])
-            self.pub.publish(out)
+        self.last_live = live_feature[0]
+        out = FeaturesList(image.header, [live_feature[0]])
+        self.pub.publish(out)
+
+        if tmp_sns_in is None:
             return
 
         # match live vs. live map, live vs last live, live vs maps
@@ -69,11 +70,11 @@ class RepresentationMatching:
         align_out = SensorsInput()
 
         if tmp_sns_in.map_indices[1] > 1:
-            tmp_map_hists = list(out[tmp_sns_in.map_indices[1]:])
-            tmp_map_hists.insert(out[tmp_sns_in.map_indices[2]], tmp_sns_in.map_indices[0])
+            tmp_map_hists = list(out[-tmp_sns_in.map_indices[1] + 1:])
+            tmp_map_hists.insert(tmp_sns_in.map_indices[0], out[tmp_sns_in.map_indices[2]])
             map_hist = np.array(tmp_map_hists)     # all maps vs live img
             align_out.map_features = [Features(map_hist.flatten(), map_hist.shape)]
-            live_hist = np.array(out[:tmp_sns_in.map_indices[1]])  # all live map distances vs live img
+            live_hist = np.array(out[:-tmp_sns_in.map_indices[1] + 1])  # all live map distances vs live img
         else:
             align_out.map_features = []
             live_hist = np.array(out)
@@ -86,6 +87,7 @@ class RepresentationMatching:
         align_out.map_timestamps = tmp_sns_in.map_timestamps
         align_out.map_indices = tmp_sns_in.map_indices
         align_out.map_similarity = tmp_sns_in.map_similarity    # TODO: this is not received from repeater yet!
+        align_out.map_offset = tmp_sns_in.map_offset
 
         # rospy.logwarn("sending: " + str(hists.shape) + " " + str(tmp_sns_in.map_distances))
         self.pub_match.publish(align_out)

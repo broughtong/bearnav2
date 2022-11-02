@@ -3,11 +3,15 @@ tmux kill-session -t bearnav
 tmux new-session -d -s "bearnav" -n "bearnav"
 tmux new-window -d -n "mapmaker"
 tmux new-window -d -n "repeater"
+tmux new-window -d -n "repr"
 tmux new-window -d -n "misc"
 tmux new-window -d -n "maps"
 
+
 tmux send-keys -t bearnav:bearnav "source ../../devel/setup.bash" Enter
 tmux send-keys -t bearnav:bearnav "roslaunch bearnav2 bearnav2.launch "
+tmux send-keys -t bearnav:repr "source ../../devel/setup.bash" Enter
+tmux send-keys -t bearnav:repr "roslaunch bearnav2 bearnav2-repr.launch "
 tmux send-keys -t bearnav:mapmaker "source ../../devel/setup.bash" Enter
 tmux send-keys -t bearnav:mapmaker "rostopic pub /bearnav2/mapmaker/goal "
 tmux send-keys -t bearnav:repeater "source ../../devel/setup.bash" Enter

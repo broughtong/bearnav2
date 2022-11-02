@@ -159,7 +159,7 @@ class PF2D(SensorFusion):
                 transitions[j, i] = array[curr_idx]
                 curr_idx += 1
         for i in range(map_num):
-            transitions[i] = self._numpy_softmax(transitions[i])
+            transitions[i] = self._numpy_softmax(transitions[i], 1.0)
         rospy.logwarn(transitions)
         return transitions
 
@@ -173,6 +173,7 @@ class PF2D(SensorFusion):
         # rospy.logwarn("PF obtained new input")
         # get everything
         curr_time = msg.header.stamp
+        self.header = msg.header
         map_hists = None
         if self.last_time is None:
             self.last_time = curr_time
@@ -183,7 +184,10 @@ class PF2D(SensorFusion):
         map_trans = np.array(msg.map_transitions[0].values).reshape(msg.map_transitions[0].shape)
         live_hists = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hists = live_hists[:-1]
-        curr_img_diff = self._diff_from_hist(live_hists[-1])
+        hist_width = hists.shape[-1]
+        shifts = np.round(msg.map_offset * (hist_width // 2)).astype(int)
+        hists = np.roll(hists, shifts, -1)  # not sure if last dim should be rolled like this
+        curr_img_diff = self._sample_hist([live_hists[-1]])
         curr_time_diff = (curr_time - self.last_time).to_sec()
         dists = np.array(msg.map_distances)
         time_diffs = np.array(self._get_time_diff(msg.map_timestamps))
@@ -199,12 +203,12 @@ class PF2D(SensorFusion):
         #     rospy.logwarn("Invalid input sizes for particle filter!")
         #     return
 
-        if abs(traveled) < 0.001 and abs(curr_img_diff) < 0.001:
+        if abs(traveled) < 0.001: # and abs(curr_img_diff) < 0.001: # TODO curr_img_diff is not scalar anymore
             # this is when odometry is slower than camera
             self.last_time = curr_time
             rospy.logwarn(
                 "Not enough movement detected for particle filter update!\n" + "traveled: " + str(traveled) + "," + str(
-                    curr_img_diff))
+                    np.var(curr_img_diff)))
             return
 
         if self.particles.shape[-1] > self.particles_num:
@@ -223,11 +227,7 @@ class PF2D(SensorFusion):
         traveled_fracs = float(curr_time_diff) / time_diffs
         # rospy.loginfo("traveled fracs:" + str(traveled_fracs))
         # Monte carlo sampling of transitions
-        hist_size = map_trans.shape[-1]
-        # TODO: map_trans has sum to maybe use softmax?
-        trans = np.array([self.rng.choice(np.linspace(start=-1, stop=1, num=hist_size), int(self.particles_num),
-                                          p=map_trans[idx]/np.sum(map_trans[idx]))
-                          for idx, curr_trans_sample in enumerate(map_trans)])
+        trans = -self._sample_hist(map_trans)
         trans_per_particle = trans[closest_transition.squeeze(), np.arange(self.particles_num)].transpose()
         frac_per_particle = traveled_fracs[closest_transition]
         # generate new particles
@@ -235,24 +235,26 @@ class PF2D(SensorFusion):
         # rolls = np.random.rand(self.particles.shape[1])
         # indices = self._first_nonzero(np.matrix(trans_cumsum_per_particle) >= np.transpose(np.matrix(rolls)), 1)
         trans_diff = np.array(trans_per_particle * frac_per_particle)
-        align_shift = curr_img_diff + trans_diff
+        align_shift = curr_img_diff.transpose() + trans_diff
 
         # distance is not shifted because it is shifted already in odometry step
         particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
+
         moved_particles = np.transpose(self.particles[:2]) + particle_shifts + \
                           self.rng.normal(loc=(0, 0),
                                           scale=(self.odom_error * traveled,
-                                                 self.align_error * np.mean(np.abs(align_shift))),  # here was aditive noise 0.025
+                                                 self.align_error * np.mean(np.abs(align_shift))),
+                                          # here was aditive noise 0.025
                                           size=(self.particles.shape[1], 2))
         out.append(moved_particles)
         self.particles[:2] = moved_particles.transpose()
 
-        if self.use_map_trans and (rospy.Time.now() - self.last_map_transition_time).to_sec() > self._map_trans_time\
+        if self.use_map_trans and (rospy.Time.now() - self.last_map_transition_time).to_sec() > self._map_trans_time \
                 and map_hists is not None:
             random_indices = self.rng.choice(np.arange(self.particles_num),
                                              int(self.particles_num // 5))
             random_particles = self.particles[2, random_indices]
-            # move particles in map space, but not too often
+            # move particles in map space, but not too often - time limit
             self.last_map_transition_time = rospy.Time.now()
             for map_id in range(msg.maps[1]):
                 random_particles[random_particles == map_id] = self.rng.choice(np.arange(msg.maps[1]),
@@ -263,9 +265,10 @@ class PF2D(SensorFusion):
 
         # sensor step -------------------------------------------------------------------------------
         # add new particles
+
         new = []
         tmp = np.zeros((3, int(self.particles_num / 10)))
-        tmp[0, :] = self.rng.uniform(low=dists[0], high=dists[1], size=(1, int(self.particles_num / 10)))
+        tmp[0, :] = self.rng.uniform(low=dists[0], high=dists[-1], size=(1, int(self.particles_num / 10)))
         tmp[1, :] = self.rng.uniform(low=-0.5, high=0.5, size=(1, int(self.particles_num / 10)))
         if map_hists is not None:
             tmp[2, :] = np.random.randint(low=0, high=len(map_vals), size=(1, int(self.particles_num / 10)))
@@ -277,6 +280,7 @@ class PF2D(SensorFusion):
             self.particle_prob = np.concatenate(
                 [self.particle_prob, np.zeros((self.particles[0].size - self.particles_num), )])
 
+
         # interpolate
         # maxs_pre = hists.max(axis=1)
         # rospy.logwarn(str(maxs_pre) + str(dists))
@@ -284,6 +288,12 @@ class PF2D(SensorFusion):
 
         self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)
         hist_width = np.shape(hists)[1]
+        interp_f = interpolate.RectBivariateSpline(dists, np.linspace(-1.0, 1.0, hist_width), hists, kx=1)
+        self.particle_prob = interp_f(self.particles[0], self.particles[1], grid=False)
+        self.particle_prob[self.particle_prob < 0] = 0
+        # this produces NxN array why???
+        """
+        # this is very slow
         xs, ys = np.meshgrid(dists, np.linspace(-1.0, 1.0, hist_width))
         positions = np.vstack([xs.ravel(), ys.ravel()])
         idx, idy = np.meshgrid(np.arange(hists.shape[0]), np.arange(hists.shape[1]))
@@ -291,11 +301,11 @@ class PF2D(SensorFusion):
 
         # for data out of scope use boundary values - clipping
         clipped_dists = np.clip(self.particles[0], dists[0], dists[-1])
-
         self.particle_prob = interpolate.griddata(np.transpose(positions),
                                                   hists[indices[0], indices[1]],
                                                   (clipped_dists, self.particles[1]),
                                                   method="linear")
+        """
 
         # get probabilites of particles
         if map_hists is not None:
@@ -305,7 +315,8 @@ class PF2D(SensorFusion):
         # particle_prob /= particle_prob.sum()
         # choose the best candidates and reduce the number of particles
         chosen_indices = self.rng.choice(np.shape(self.particles)[1], int(self.particles_num),
-                                         p=self.particle_prob / np.sum(self.particle_prob))
+                                         p=self._numpy_softmax(self.particle_prob, 1.0))
+                                         # p=self.particle_prob / np.sum(self.particle_prob))
         # rospy.logwarn(self.particles[2, chosen_indices])
 
         self.particle_prob = self.particle_prob[chosen_indices]
@@ -347,8 +358,8 @@ class PF2D(SensorFusion):
         rospy.logwarn("This function is not available for this fusion class")
         raise Exception("PF2D does not support distance probabilities")
 
-    def _numpy_softmax(self, arr):
-        tmp = np.exp(arr) / np.sum(np.exp(arr))
+    def _numpy_softmax(self, arr, beta):
+        tmp = np.exp(arr * beta) / np.sum(np.exp(arr * beta))
         return tmp
 
     def _first_nonzero(self, arr, axis, invalid_val=-1):
@@ -361,6 +372,7 @@ class PF2D(SensorFusion):
         tmp_particles = self.particles
         if self.particle_prob is not None:
             self.coords = self._get_weighted_mean_pos(tmp_particles)
+            # self.coords = self.particles[:2, np.argmax(self.particle_prob)]
             if self.one_dim:
                 self.coords[1] = (np.argmax(np.max(self.last_hists, axis=0)) - self.last_hists[0].size // 2) / \
                                  self.last_hists[0].size
@@ -387,6 +399,20 @@ class PF2D(SensorFusion):
         half_size = np.size(hist) / 2.0
         curr_img_diff = ((np.argmax(hist) - (np.size(hist) // 2.0)) / half_size)
         return curr_img_diff
+
+    def _sample_hist(self, hists: list):
+        """
+        sample from histogram per each particle ...
+        """
+        hist_size = hists[0].shape[-1]
+        BETA = 25.0
+        return np.array([self.rng.choice(np.linspace(start=-1, stop=1, num=hist_size), int(self.particles_num),
+                                         p=self._numpy_softmax(hists[idx], BETA))
+                         for idx, curr_trans_sample in enumerate(hists)])
+
+    def _sample_maxs(self, hists: list):
+        return np.array([np.ones(self.particles_num) * self._diff_from_hist(curr_trans_sample)
+                         for idx, curr_trans_sample in enumerate(hists)])
 
     def _get_mean_pos(self):
         return np.mean(self.particles, axis=1)
