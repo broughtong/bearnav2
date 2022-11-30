@@ -6,7 +6,7 @@ tmux new-window -d -n "repeater"
 tmux new-window -d -n "repr"
 tmux new-window -d -n "misc"
 tmux new-window -d -n "maps"
-
+tmux new-window -d -n "resize"
 
 tmux send-keys -t bearnav:bearnav "source ../../devel/setup.bash" Enter
 tmux send-keys -t bearnav:bearnav "roslaunch bearnav2 bearnav2.launch "
@@ -21,3 +21,4 @@ tmux send-keys -t bearnav:misc "timeout 3 rostopic hz /camera_front/image_color"
 sleep 3
 tmux send-keys -t bearnav:misc "timeout 3 rostopic hz /husky_velocity_controller/odom" Enter
 tmux send-keys -t bearnav:maps "cd ~/.ros" Enter
+tmux send-keys -t bearnav:resize "rosrun nodelet nodelet standalone image_proc/resize image:=/camera_front/image_color camera_info:=/camera_front/camera_info _scale_width:=0.2666666 _scale_height:=0.2666666"
