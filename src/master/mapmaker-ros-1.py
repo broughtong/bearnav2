@@ -17,6 +17,8 @@ import numpy as np
 from copy import deepcopy
 import ros_numpy
 from message_filters import ApproximateTimeSynchronizer, Subscriber
+import shutil
+
 
 TARGET_WIDTH = 512
 
@@ -265,9 +267,10 @@ class ActionServer:
             rospy.loginfo("Creating final wp")
             # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             # cv2.imwrite(filename, self.img)
-            save_img(self.img_features, self.img_msg, self.header, self.mapName,
-                     self.lastDistance, self.curr_hist, self.curr_alignment, self.source_map,
-                     self.save_imgs)  # with resizing
+            if self.target_distances is None:
+                save_img(self.img_features, self.img_msg, self.header, self.mapName,
+                         self.lastDistance, self.curr_hist, self.curr_alignment, self.source_map,
+                         self.save_imgs)  # with resizing
             rospy.logwarn("Stopping Mapping")
             rospy.loginfo(f"Map saved under: '{os.path.join(os.path.expanduser('~'), '.ros', self.mapName)}'")
             time.sleep(2)
@@ -275,6 +278,12 @@ class ActionServer:
             result.success = True
             self.server.set_succeeded(result)
             self.bag.close()
+            if self.target_distances is not None:
+                # use action commands from source map!!!
+                os.remove(os.path.join(goal.mapName, goal.mapName + ".bag"))
+                shutil.copy(os.path.join(goal.sourceMap, goal.sourceMap + ".bag"),
+                            os.path.join(goal.mapName, goal.mapName + ".bag"))
+
 
     def checkShutdown(self):
         if self.server.is_preempt_requested():
