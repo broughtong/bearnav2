@@ -173,8 +173,11 @@ class ActionServer:
         # eventually save the image if conditions fulfilled ------------------------------------
         if self.target_distances is not None and self.lastDistance != 0.0:
             # when source map is provided
-            if np.sum(np.array(self.target_distances) <= self.lastDistance) != \
+            if np.sum(np.array(self.target_distances) <= self.lastDistance) < \
                     np.sum(np.array(self.target_distances) <= dist):
+                self.lastDistance = dist
+                rospy.logwarn(np.array(self.target_distances) <= dist)
+                rospy.logwarn(np.array(self.target_distances) <= self.lastDistance)
                 save_img(self.img_features, self.img_msg, self.header, self.mapName, dist, self.curr_hist,
                          self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
                 rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
@@ -188,9 +191,7 @@ class ActionServer:
             self.cum_turn = 0.0
             self.last_img_features = self.img_features
 
-        if self.lastDistance < dist:
             # used for taking source map remapping
-            self.lastDistance = dist
         self.checkShutdown()
 
     def joyCB(self, msg):
@@ -203,10 +204,9 @@ class ActionServer:
 
     def actionCB(self, goal):
 
-        self.target_distances = []
-
         if goal.sourceMap != "":
             # sync different topics when repeating using source map
+            self.target_distances = []
             self.source_map = goal.sourceMap
             self.target_distances = get_map_dists(self.source_map)
             distance_sub = Subscriber("repeat/output_dist", SensorsOutput)
