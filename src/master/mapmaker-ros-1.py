@@ -80,7 +80,8 @@ class ActionServer:
         self.header = None
         self.target_distances = None
         self.last_distances_diff = None
-
+        self.dist = 0.0
+        
         self.additionalTopics = rospy.get_param("~additional_record_topics")
         self.additionalTopics = self.additionalTopics.split(" ")
         self.additionalTopicSubscribers = []
@@ -149,7 +150,7 @@ class ActionServer:
         self.img_msg = img
         self.header = repr_msg.header
         dist = dist_msg.output
-
+        self.dist = dist
         if not self.isMapping:
             return
 
@@ -201,7 +202,7 @@ class ActionServer:
             rospy.logdebug("Adding joy")
             save_msg = DistancedTwist()
             save_msg.twist = msg
-            save_msg.distance = self.lastDistance
+            save_msg.distance = self.dist
             self.bag.write("recorded_actions", save_msg)
 
     def actionCB(self, goal):
@@ -267,7 +268,7 @@ class ActionServer:
             rospy.loginfo("Creating final wp")
             # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             # cv2.imwrite(filename, self.img)
-            if self.target_distances is None:
+            if self.target_distances is None and self.nextStep - self.dist > self.mapStep/2:
                 save_img(self.img_features, self.img_msg, self.header, self.mapName,
                          self.lastDistance, self.curr_hist, self.curr_alignment, self.source_map,
                          self.save_imgs)  # with resizing
@@ -279,6 +280,7 @@ class ActionServer:
             self.server.set_succeeded(result)
             self.bag.close()
             if self.target_distances is not None:
+                rospy.logwarn("Removing and copying action commands")
                 # use action commands from source map!!!
                 os.remove(os.path.join(goal.mapName, goal.mapName + ".bag"))
                 shutil.copy(os.path.join(goal.sourceMap, goal.sourceMap + ".bag"),

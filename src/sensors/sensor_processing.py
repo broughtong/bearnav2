@@ -26,8 +26,8 @@ class BearnavClassic(SensorFusion):
         return out
 
     def _process_abs_alignment(self, msg):
-        if msg.map_features[0].shape[0] > 1:
-            rospy.logwarn("Bearnav classic can process only one image")
+        # if msg.map_features[0].shape[0] > 1:
+        #     rospy.logwarn("Bearnav classic can process only one image")
         histogram = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         self.alignment = (np.argmax(histogram) - np.size(histogram) // 2) / (np.size(histogram) // 2)
         rospy.loginfo("Current displacement: " + str(self.alignment))
@@ -124,6 +124,9 @@ class PF2D(SensorFusion):
         self._min_align_noise = 0.01
         self._map_trans_time = 5.0
 
+        self.BETA_align = 25.0
+        self.BETA_choice = 10.0
+
         # For debugging
         self.debug = debug
         if debug:
@@ -159,7 +162,7 @@ class PF2D(SensorFusion):
                 transitions[j, i] = array[curr_idx]
                 curr_idx += 1
         for i in range(map_num):
-            transitions[i] = self._numpy_softmax(transitions[i], 1.0)
+            transitions[i] = self._numpy_softmax(transitions[i], self.BETA_choice)
         rospy.logwarn(transitions)
         return transitions
 
@@ -315,7 +318,7 @@ class PF2D(SensorFusion):
         # particle_prob /= particle_prob.sum()
         # choose the best candidates and reduce the number of particles
         chosen_indices = self.rng.choice(np.shape(self.particles)[1], int(self.particles_num),
-                                         p=self._numpy_softmax(self.particle_prob, 1.0))
+                                         p=self._numpy_softmax(self.particle_prob, 3.0))
                                          # p=self.particle_prob / np.sum(self.particle_prob))
         # rospy.logwarn(self.particles[2, chosen_indices])
 
@@ -405,9 +408,8 @@ class PF2D(SensorFusion):
         sample from histogram per each particle ...
         """
         hist_size = hists[0].shape[-1]
-        BETA = 25.0
         return np.array([self.rng.choice(np.linspace(start=-1, stop=1, num=hist_size), int(self.particles_num),
-                                         p=self._numpy_softmax(hists[idx], BETA))
+                                         p=self._numpy_softmax(hists[idx], self.BETA_align))
                          for idx, curr_trans_sample in enumerate(hists)])
 
     def _sample_maxs(self, hists: list):
