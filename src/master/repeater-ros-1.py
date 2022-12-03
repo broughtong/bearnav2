@@ -43,6 +43,7 @@ def load_map(mappaths, images, distances, trans, times, source_align):
         tmp_trans = []
         tmp_times = []
         tmp_align = []
+        source_map = None
 
         for idx, dist in enumerate(tmp):
 
@@ -53,11 +54,18 @@ def load_map(mappaths, images, distances, trans, times, source_align):
                 r = map_point["representation"]
                 ts = map_point["timestamp"]
                 diff_hist = map_point["diff_hist"]
+                # this logic is for using multiple map - all maps must have same source map
+                if map_point["source_map_align"] is None:
+                    sm = mappath
+                else:
+                    sm = map_point["source_map_align"][0]
+                if source_map is None:
+                    source_map = sm
+                if sm != source_map:
+                    rospy.logwarn("Multimap with invalid target!" + str(mappath))
+                    raise Exception("Invalid map combination")
                 if map_point["source_map_align"] is not None:
                     align = map_point["source_map_align"][1]
-                    if map_idx > 0 and map_point["source_map_align"][0] != mappaths[0]:
-                        rospy.logwarn("Multimap with invalid target!" + str(mappath))
-                        raise Exception("Invalid map combination")
                 else:
                     align = 0
                 feature.shape = r.shape
