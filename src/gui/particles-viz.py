@@ -16,7 +16,7 @@ def callback(msg):
     if pub.get_num_connections() == 0:
         return
 
-    print("particles received")
+    # print("particles received")
 
     plt.clf()
     fig = plt.figure()
@@ -44,6 +44,8 @@ def callback(msg):
     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     plt.close()
 
+    print("map0:",np.sum(maps == 0))
+    print("map1:", np.sum(maps == 1))
     msg = ros_numpy.msgify(Image, img, "rgb8")
     pub.publish(msg)
 
