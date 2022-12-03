@@ -265,13 +265,14 @@ class ActionServer:
             result.success = True
             self.server.set_succeeded(result)
         else:
-            rospy.loginfo("Creating final wp")
             # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
             # cv2.imwrite(filename, self.img)
-            if self.target_distances is None and self.nextStep - self.dist > self.mapStep/2:
+            if self.target_distances is None and self.nextStep - self.dist > self.mapStep/4:
                 save_img(self.img_features, self.img_msg, self.header, self.mapName,
                          self.lastDistance, self.curr_hist, self.curr_alignment, self.source_map,
                          self.save_imgs)  # with resizing
+                rospy.loginfo("Creating final wp at dist: ", self.dist)
+
             rospy.logwarn("Stopping Mapping")
             rospy.loginfo(f"Map saved under: '{os.path.join(os.path.expanduser('~'), '.ros', self.mapName)}'")
             time.sleep(2)
