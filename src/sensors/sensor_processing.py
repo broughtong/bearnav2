@@ -91,7 +91,7 @@ class PF2D(SensorFusion):
     # Third dimension - maps
 
     def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
-                 align_error: float, align_init_std: float, particles_frac: int, debug: bool,
+                 align_beta: float, align_init_std: float, particles_frac: int, choice_beta: float, debug: bool,
                  abs_align_est: DisplacementEstimator, rel_align_est: DisplacementEstimator,
                  rel_dist_est: RelativeDistanceEstimator, repr_creator: RepresentationsCreator):
         super(PF2D, self).__init__(type_prefix, abs_align_est=abs_align_est,
@@ -103,7 +103,6 @@ class PF2D(SensorFusion):
         self.rng = np.random.default_rng()
 
         self.odom_error = odom_error
-        self.align_error = align_error
         self.odom_init_std = odom_init_std
         self.align_init_std = align_init_std
 
@@ -124,8 +123,8 @@ class PF2D(SensorFusion):
         self._min_align_noise = 0.01
         self._map_trans_time = 5.0
 
-        self.BETA_align = 25.0
-        self.BETA_choice = 10.0
+        self.BETA_align = align_beta
+        self.BETA_choice = choice_beta
 
         # For debugging
         self.debug = debug
@@ -245,9 +244,7 @@ class PF2D(SensorFusion):
 
         moved_particles = np.transpose(self.particles[:2]) + particle_shifts + \
                           self.rng.normal(loc=(0, 0),
-                                          scale=(self.odom_error * traveled,
-                                                 self.align_error * np.mean(np.abs(align_shift))),
-                                          # here was aditive noise 0.025
+                                          scale=(self.odom_error * traveled, 0),
                                           size=(self.particles.shape[1], 2))
         out.append(moved_particles)
         self.particles[:2] = moved_particles.transpose()
