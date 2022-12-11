@@ -288,11 +288,11 @@ class ActionServer():
         # create publishers
         additionalPublishers = {}
         rospy.logwarn(self.savedOdomTopic)
-        for topic, message, ts in self.bag.read_messages():
-            if topic is not self.savedOdomTopic:
-                topicType = self.bag.get_type_and_topic_info()[1][topic][0]
-                topicType = roslib.message.get_message_class(topicType)
-                additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1)
+        # for topic, message, ts in self.bag.read_messages():
+        #     if topic is not self.savedOdomTopic:
+        #         topicType = self.bag.get_type_and_topic_info()[1][topic][0]
+        #         topicType = roslib.message.get_message_class(topicType)
+        #         additionalPublishers[topic] = rospy.Publisher(topic, topicType, queue_size=1)
 
         self.distance_reset_srv(goal.startPos, self.map_num)
         self.curr_dist = goal.startPos
