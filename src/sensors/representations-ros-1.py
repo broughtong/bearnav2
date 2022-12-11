@@ -60,30 +60,24 @@ class RepresentationMatching:
             return
 
         # match live vs. live map, live vs last live, live vs maps
-        ext_map = [*tmp_sns_in.live_features, self.last_live, *tmp_sns_in.map_features]
+        ext_tensor = [*tmp_sns_in.map_features, self.last_live]
         align_in = SensorsInput()
-        align_in.map_features = ext_map
+        align_in.map_features = ext_tensor
         align_in.live_features = live_feature
         out = self.align_abs.process_msg(align_in)
 
         # decode these
         align_out = SensorsInput()
 
-        if tmp_sns_in.map_indices[1] > 1:
-            tmp_map_hists = list(out[-tmp_sns_in.map_indices[1] + 1:])
-            tmp_map_hists.insert(tmp_sns_in.map_indices[0], out[tmp_sns_in.map_indices[2]])
-            map_hist = np.array(tmp_map_hists)     # all maps vs live img
-            align_out.map_features = [Features(map_hist.flatten(), map_hist.shape)]
-            live_hist = np.array(out[:-tmp_sns_in.map_indices[1] + 1])  # all live map distances vs live img
-        else:
-            align_out.map_features = []
-            live_hist = np.array(out)
+        live_hist = np.array(out[-1])  # all live map distances vs live img
+        map_hist = np.array(out[:-1])
 
         # create publish msg
         align_out.header = image.header
-        align_out.live_features = [Features(live_hist.flatten(), live_hist.shape)]
+        align_out.live_features = [Features(live_hist.flatten(), live_hist.shape)]  # now it is list of histogram, not features
+        align_out.map_features = [Features(map_hist.flatten(), map_hist.shape)]     # this too
         align_out.map_distances = tmp_sns_in.map_distances
-        align_out.map_transitions = tmp_sns_in.map_transitions
+        align_out.map_transitions = tmp_sns_in.map_transitions                      # also list of histograms
         align_out.map_timestamps = tmp_sns_in.map_timestamps
         align_out.map_indices = tmp_sns_in.map_indices
         align_out.map_similarity = tmp_sns_in.map_similarity    # TODO: this is not received from repeater yet!

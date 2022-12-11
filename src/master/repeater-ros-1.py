@@ -46,9 +46,7 @@ def load_map(mappaths, images, distances, trans, times, source_align):
         source_map = None
 
         for idx, dist in enumerate(tmp):
-
             tmp_distances.append(float(dist))
-            feature = Features()
             with open(os.path.join(mappath, dist + ".npy"), 'rb') as fp:
                 map_point = np.load(fp, allow_pickle=True, fix_imports=False).item(0)
                 r = map_point["representation"]
@@ -68,6 +66,7 @@ def load_map(mappaths, images, distances, trans, times, source_align):
                     align = map_point["source_map_align"][1]
                 else:
                     align = 0
+                feature = Features()
                 feature.shape = r.shape
                 feature.values = list(r.flatten())
                 tmp_images.append(feature)
@@ -110,7 +109,6 @@ class ActionServer():
         self.map_transitions = []
         self.use_distances = False
         self.distance_finish_offset = 0.2
-        self.last_nearest_idx = 0
         self.curr_map = 0
         self.map_num = 0
         self.last_map = 0
@@ -150,46 +148,39 @@ class ActionServer():
             return
         if len(self.map_images) > 0:
             # rospy.logwarn(self.map_distances)
-            # Load data from the map
-            nearest_main_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[self.curr_map])))
-            nearest_dist = self.map_distances[self.curr_map][nearest_main_map_idx]
-            if nearest_main_map_idx == self.last_nearest_idx and nearest_main_map_idx != 0 and self.curr_map == self.last_map:
-                return
-            rospy.loginfo("matching image " + str(nearest_main_map_idx) + " at distance " + str(self.curr_dist))
-            # allow only move in map by one image per iteration
-            # nearest_map_idx = self.last_nearest_idx + np.sign(nearest_map_idx - self.last_nearest_idx)
-            lower_bound = max(0, nearest_main_map_idx - self.map_publish_span)
-            upper_bound = min(nearest_main_map_idx + self.map_publish_span + 1, len(self.map_distances[self.curr_map]))
-            live_imgs = self.map_images[self.curr_map][lower_bound:upper_bound]
-            map_imgs = []
-            distances = self.map_distances[self.curr_map][lower_bound:upper_bound]
-            nearest_dist = list(distances).index(nearest_dist)
-            timestamps = self.map_times[self.curr_map][lower_bound:upper_bound]
-            offsets = self.map_alignments[self.curr_map][lower_bound:upper_bound]
-            if len(self.map_transitions) > 0:
-                transitions = np.array(self.map_transitions[self.curr_map][lower_bound:upper_bound - 1])
-            else:
-                transitions = []
-            if self.map_num > 0:
-                for map_idx in [i for i in range(self.map_num)]:
-                    if map_idx != self.curr_map:
-                        nearest_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
-                        map_imgs.append(self.map_images[map_idx][nearest_map_idx])
+            # Load data from each map the map
+            features = []
+            distances = []
+            timestamps = []
+            offsets = []
+            transitions = []
+            for map_idx in range(self.map_num):
+                nearest_main_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
+                rospy.loginfo("matching image " + str(nearest_main_map_idx) + " at distance " + str(self.curr_dist))
+                # allow only move in map by one image per iteration
+                lower_bound = max(0, nearest_main_map_idx - self.map_publish_span)
+                upper_bound = min(nearest_main_map_idx + self.map_publish_span + 1, len(self.map_distances[map_idx]))
+                features.extend(self.map_images[map_idx][lower_bound:upper_bound])
+                distances.extend(self.map_distances[map_idx][lower_bound:upper_bound])
+                timestamps.extend(self.map_times[map_idx][lower_bound:upper_bound])
+                offsets.extend(self.map_alignments[map_idx][lower_bound:upper_bound])
+                transitions.extend(self.map_transitions[map_idx][lower_bound:upper_bound - 1])
+
+            transitions = np.array(transitions)
             # Create message for estimators
             sns_in = SensorsInput()
             sns_in.header.stamp = rospy.Time.now()
-            sns_in.live_features = list(live_imgs)
-            sns_in.map_features = map_imgs
+            sns_in.live_features = []
+            sns_in.map_features = features
             sns_in.map_distances = distances
-            sns_in.map_transitions = [Features(list(transitions.flatten()), transitions.shape)]
+            sns_in.map_transitions = [Features(transitions.flatten(), transitions.shape)]
             sns_in.map_timestamps = timestamps
-            sns_in.map_indices = [self.curr_map, self.map_num, nearest_dist]
+            sns_in.map_indices = self.map_num
             # TODO: sns_in.map_similarity
             sns_in.map_offset = offsets
 
             # rospy.logwarn("message created")
             self.sensors_pub.publish(sns_in)
-            self.last_nearest_idx = nearest_main_map_idx
             self.last_map = self.curr_map
 
             # rospy.logwarn("Image published!")
