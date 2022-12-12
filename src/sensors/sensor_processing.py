@@ -172,37 +172,36 @@ class PF2D(SensorFusion):
         return out
 
     def _process_abs_alignment(self, msg):
-        # rospy.logwarn("PF obtained new input")
         # Parse all data from the incoming message
         curr_time = msg.header.stamp
         self.header = msg.header
         if self.last_time is None:
             self.last_time = curr_time
             return
-        if len(msg.map_features) > 0:
-            map_hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
+        hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
         map_trans = np.array(msg.map_transitions[0].values).reshape(msg.map_transitions[0].shape)
         live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
-        hists = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hist_width = hists.shape[-1]
         shifts = np.round(msg.map_offset * (hist_width // 2)).astype(int)
         hists = np.roll(hists, shifts, -1)  # not sure if last dim should be rolled like this
-        curr_img_diff = self._sample_hist([live_hist[0]])
+        curr_img_diff = self._sample_hist([live_hist])
         curr_time_diff = (curr_time - self.last_time).to_sec()
         dists = np.array(msg.map_distances)
         timestamps = msg.map_timestamps
         traveled = self.traveled_dist
 
+        rospy.logwarn(hists.shape)
+
         # Divide incoming data according the map affiliation
         len_per_map = np.size(dists) // self.map_num
         trans_per_map = len_per_map - 1
-        if float(len(dists)) / float(msg.map_num) > 0.000001:
+        if len(dists) % msg.map_num > 0:
             # TODO: this assumes that there is same number of features comming from all the maps (this does not have to hold when 2*map_len < lookaround)
             rospy.logwarn("!!!!!!!!!!!!!!!!!! One map has more images than other !!!!!!!!!!!!!!!!")
             return
         map_trans = [map_trans[trans_per_map * map_idx:trans_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
         hists = [hists[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
-        dists = [dists[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
+        dists = np.array([dists[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)])
         timestamps = [timestamps[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
         time_diffs = [self._get_time_diff(timestamps[map_idx]) for map_idx in range(self.map_num)]
         if self.map_num > 1:
@@ -240,7 +239,7 @@ class PF2D(SensorFusion):
             traveled_fracs = float(curr_time_diff) / np.array(time_diffs[map_idx])
             # rospy.loginfo("traveled fracs:" + str(traveled_fracs))
             # Monte carlo sampling of transitions
-            trans = -self._sample_hist(map_trans)
+            trans = -self._sample_hist(map_trans[map_idx])
             trans_per_particle = trans[closest_transition.squeeze(), np.arange(particles_in_map)].transpose()
             frac_per_particle = traveled_fracs[closest_transition]
             # generate new particles
@@ -262,7 +261,7 @@ class PF2D(SensorFusion):
 
             # TODO: this has to be updated for joint map state
             if self.use_map_trans and (rospy.Time.now() - self.last_map_transition_time).to_sec() > self._map_trans_time \
-                    and map_hists is not None:
+                    and hists is not None:
                 random_indices = self.rng.choice(np.arange(self.particles_num),
                                                  int(self.particles_num // 5))
                 random_particles = self.particles[2, random_indices]
@@ -292,15 +291,17 @@ class PF2D(SensorFusion):
                 [self.particle_prob, np.zeros((self.particles[0].size - self.particles_num), )])
 
         # sensor step -------------------------------------------------------------------------------
+        particle_prob = np.zeros(self.particles.shape[-1])
         self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)   # more than 0% overlap is nonsense
         for map_idx in range(self.map_num):
             map_particle_mask = self.particles[2] == map_idx
             map_masked_particles = self.particles[:, map_particle_mask]
-            hist_width = np.shape(hists)[1]
+
             interp_f = interpolate.RectBivariateSpline(dists[map_idx], np.linspace(-1.0, 1.0, hist_width),
                                                        hists[map_idx], kx=1)
-            self.particle_prob[map_particle_mask] = interp_f(map_masked_particles[0],
-                                                             map_masked_particles[1], grid=False)
+            particle_prob[map_particle_mask] = interp_f(map_masked_particles[0],
+                                                        map_masked_particles[1], grid=False)
+        self.particle_prob = particle_prob
         self.particle_prob[self.particle_prob < 0] = 0.0  # lower than 0.0 probability - should not happen though
 
         # perform some normalization and resample the particles via roulette wheel

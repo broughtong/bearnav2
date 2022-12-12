@@ -79,7 +79,7 @@ class RepresentationMatching:
         align_out.map_distances = tmp_sns_in.map_distances
         align_out.map_transitions = tmp_sns_in.map_transitions                      # also list of histograms
         align_out.map_timestamps = tmp_sns_in.map_timestamps
-        align_out.map_indices = tmp_sns_in.map_indices
+        align_out.map_num = tmp_sns_in.map_num
         align_out.map_similarity = tmp_sns_in.map_similarity    # TODO: this is not received from repeater yet!
         align_out.map_offset = tmp_sns_in.map_offset
 

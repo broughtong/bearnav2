@@ -175,7 +175,7 @@ class ActionServer():
             sns_in.map_distances = distances
             sns_in.map_transitions = [Features(transitions.flatten(), transitions.shape)]
             sns_in.map_timestamps = timestamps
-            sns_in.map_indices = self.map_num
+            sns_in.map_num = self.map_num
             # TODO: sns_in.map_similarity
             sns_in.map_offset = offsets
 
