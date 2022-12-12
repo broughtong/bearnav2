@@ -82,16 +82,6 @@ class ActionServer:
         self.last_distances_diff = None
         self.dist = 0.0
         
-        self.additionalTopics = rospy.get_param("~additional_record_topics")
-        self.additionalTopics = self.additionalTopics.split(" ")
-        self.additionalTopicSubscribers = []
-        if self.additionalTopics[0] != "":
-            rospy.loginfo(f"Recording the following additional topics: {self.additionalTopics}")
-            for topic in self.additionalTopics:
-                msgType = rostopic.get_topic_class(topic)[0]
-                s = rospy.Subscriber(topic, msgType, self.miscCB, queue_size=1)
-                self.additionalTopicSubscribers.append(s)
-
         rospy.loginfo("Waiting for services to become available...")
         rospy.wait_for_service("teach/set_dist")
         rospy.loginfo("Starting...")
