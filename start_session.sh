@@ -9,9 +9,9 @@ tmux new-window -d -n "maps"
 tmux new-window -d -n "resize"
 
 tmux send-keys -t bearnav:bearnav "source ../../devel/setup.bash" Enter
-tmux send-keys -t bearnav:bearnav "roslaunch bearnav2 bearnav2.launch "
+tmux send-keys -t bearnav:bearnav "roslaunch bearnav2 spot2.launch "
 tmux send-keys -t bearnav:repr "source ../../devel/setup.bash" Enter
-tmux send-keys -t bearnav:repr "roslaunch bearnav2 bearnav2-repr.launch "
+tmux send-keys -t bearnav:repr "roslaunch bearnav2 repr-spot2.launch "
 tmux send-keys -t bearnav:mapmaker "source ../../devel/setup.bash" Enter
 tmux send-keys -t bearnav:mapmaker "rostopic pub /bearnav2/mapmaker/goal "
 tmux send-keys -t bearnav:repeater "source ../../devel/setup.bash" Enter
