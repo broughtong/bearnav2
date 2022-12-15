@@ -115,7 +115,7 @@ class ActionServer:
         repr_sub = Subscriber("live_representation", FeaturesList)
         cam_sub = Subscriber(self.camera_topic, Image)
         distance_sub = Subscriber("teach/output_dist", SensorsOutput)
-        self.synced_topics = ApproximateTimeSynchronizer([repr_sub, distance_sub, cam_sub], queue_size=2, slop=0.2)
+        self.synced_topics = ApproximateTimeSynchronizer([repr_sub, distance_sub, cam_sub], queue_size=50, slop=2.5)
         self.synced_topics.registerCallback(self.distance_imgCB)
 
         self.curr_alignment = None
