@@ -52,7 +52,8 @@ class RepresentationMatching:
         live_feature = self.align_abs._to_feature(msg)
         tmp_sns_in = self.sns_in_msg
 
-        self.last_live = live_feature[0]
+        if self.last_live is None:
+            self.last_live = live_feature[0]
         out = FeaturesList(image.header, [live_feature[0]])
         self.pub.publish(out)
 

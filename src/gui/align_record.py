@@ -8,18 +8,18 @@ from bearnav2.msg import FloatList, SensorsOutput
 import matplotlib.pyplot as plt
 import numpy as np
 import ros_numpy
+from nav_msgs.msg import Odometry
 
 
 def callback(msg):
-    m = msg.map
-    dist = msg.output
-    f.write(str(msg.header.stamp) + "," + str(m) + "," + str(dist) + "\n")
+    print("received")
+    f.write(str(msg.output) + "\n")
 
 
 if __name__ == "__main__":
-    f = open("dist_out", "w")
+    f = open("recorded_alignment.txt", "w")
     rospy.init_node("dist_record")
-    rospy.Subscriber("/bearnav2/repeat/output_dist", SensorsOutput, callback)
+    rospy.Subscriber("/bearnav2/repeat/output_align", SensorsOutput, callback)
     print("Saving ready")
     rospy.spin()
     f.close()

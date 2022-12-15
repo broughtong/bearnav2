@@ -179,6 +179,7 @@ class PF2D(SensorFusion):
             self.last_time = curr_time
             return
         hists = np.array(msg.map_features[0].values).reshape(msg.map_features[0].shape)
+        self.last_hists = hists
         map_trans = np.array(msg.map_transitions[0].values).reshape(msg.map_transitions[0].shape)
         live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hist_width = hists.shape[-1]
@@ -189,8 +190,6 @@ class PF2D(SensorFusion):
         dists = np.array(msg.map_distances)
         timestamps = msg.map_timestamps
         traveled = self.traveled_dist
-
-        rospy.logwarn(hists.shape)
 
         # Divide incoming data according the map affiliation
         len_per_map = np.size(dists) // self.map_num
@@ -229,13 +228,12 @@ class PF2D(SensorFusion):
         for map_idx in range(self.map_num):
             # get map transition for each particle
             map_particle_mask = self.particles[2, :] == map_idx
-            mat_dists = np.transpose(np.matrix(dists[map_idx]))
+            # centers of distances
+            mat_dists = np.transpose(np.matrix((dists[map_idx, 1:] + dists[map_idx, :-1]) / 2.0))
             p_distances = np.matrix(self.particles[0, map_particle_mask])
             particles_in_map = np.sum(map_particle_mask)
             # rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
-            closest_transition = np.transpose(
-                np.clip(np.argmin(np.abs(mat_dists - p_distances), axis=0), 0, len(dists) - 2))
-
+            closest_transition = np.transpose(np.argmin(np.abs(mat_dists - p_distances), axis=0))
             traveled_fracs = float(curr_time_diff) / np.array(time_diffs[map_idx])
             # rospy.loginfo("traveled fracs:" + str(traveled_fracs))
             # Monte carlo sampling of transitions
@@ -248,6 +246,11 @@ class PF2D(SensorFusion):
             # indices = self._first_nonzero(np.matrix(trans_cumsum_per_particle) >= np.transpose(np.matrix(rolls)), 1)
             trans_diff = np.array(trans_per_particle * frac_per_particle)
             align_shift = curr_img_diff.transpose() + trans_diff
+            # rospy.logwarn(closest_transition)
+            # rospy.logwarn("live: " + str(np.mean(curr_img_diff)))
+            # rospy.logwarn("map: " + str(np.mean(trans_diff)))
+            # rospy.logwarn("curr_time:" + str(curr_time_diff))
+            # rospy.logwarn("map_time" + str(time_diffs[map_idx]))
 
             # distance is not shifted because it is shifted already in odometry step
             particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
@@ -307,8 +310,9 @@ class PF2D(SensorFusion):
         # perform some normalization and resample the particles via roulette wheel
         # particle_prob -= particle_prob.min()
         # particle_prob /= particle_prob.sum()
+        self.particle_prob = self._numpy_softmax(self.particle_prob, self.BETA_choice)
         chosen_indices = self.rng.choice(np.shape(self.particles)[1], int(self.particles_num),
-                                         p=self._numpy_softmax(self.particle_prob, self.BETA_choice))
+                                         p=self.particle_prob)
         # rospy.logwarn(self.particles[2, chosen_indices])
 
         self.particle_prob = self.particle_prob[chosen_indices]
@@ -318,7 +322,6 @@ class PF2D(SensorFusion):
         self.last_image = msg.live_features
         self.last_time = curr_time
         self.traveled_dist = 0.0
-        self.last_hists = hists
         self._get_coords()  # this updates the values which are published continuously
 
         # rospy.logwarn(np.array((dist_diff, hist_diff)))
@@ -364,13 +367,15 @@ class PF2D(SensorFusion):
         # coords = np.mean(self.particles, axis=1)
         tmp_particles = self.particles
         if self.particle_prob is not None:
-            self.coords = self._get_weighted_mean_pos(tmp_particles)
+            self.coords = self._get_weighted_mean_pos()
+            # self.coords = self._histogram_voting()
             # self.coords = self.particles[:2, np.argmax(self.particle_prob)]
             if self.one_dim:
+                # for testing not using 2nd dim
                 self.coords[1] = (np.argmax(np.max(self.last_hists, axis=0)) - self.last_hists[0].size // 2) / \
                                  self.last_hists[0].size
             maps = []
-            for i in range(self.map_num):  # TODO: magic constant - number of maps
+            for i in range(self.map_num):
                 maps.append(np.sum(self.particle_prob[self.particles[2] == i]))
             ind = np.argmax(maps)
             # rospy.logwarn(maps)
@@ -409,10 +414,24 @@ class PF2D(SensorFusion):
     def _get_mean_pos(self):
         return np.mean(self.particles, axis=1)
 
-    def _get_weighted_mean_pos(self, particles):
+    def _get_weighted_mean_pos(self):
+        # # get weighted dist
+        # span = 0.25
+        # weighted_particles = self.particle_prob * self.particles[0]
+        # dist = np.sum(weighted_particles) / np.sum(self.particle_prob)
+        # # get masked alignment
+        # chosen_mask = (self.particles[0] < (dist + span)) * (self.particles[0] > (dist - span))
+        # chosen_probs = self.particle_prob[chosen_mask]
+        # align = np.sum(self.particles[1, chosen_mask] * chosen_probs) / np.sum(chosen_probs)
+        # return np.array([dist, align])
         weighted_particles = self.particles[:2] * np.tile(self.particle_prob, (2, 1))
         out = np.sum(weighted_particles, axis=1) / np.sum(self.particle_prob)
         return out
+
+    def _histogram_voting(self):
+        hist, x, y = np.histogram2d(self.particles[0], self.particles[1], bins=20, weights=self.particle_prob)
+        indices = np.unravel_index(np.argmax(hist, axis=None), hist.shape)
+        return np.array([x[indices[0]], y[indices[1]]])
 
     def _get_median_pos(self):
         return np.median(self.particles, axis=1)

@@ -66,8 +66,10 @@ if __name__ == '__main__':
     #                                    "matched_repr", odom_topic, "", "",
     #                                    "", "")
     # 2) Particle filter 2D - parameters are really important
-    repeat_fusion = PF2D("repeat", 400, 0.03, 1.0, 25.0, 0.3, 1, 10.0, True,
-                         align_abs, align_rel, dist_rel, align_abs)
+    repeat_fusion = PF2D(type_prefix="repeat", particles_num=1000, odom_error=0.05, odom_init_std=1.0, align_beta=40.0,
+                         align_init_std=0.3, particles_frac=1, choice_beta=1.0, debug=True,
+                         abs_align_est=align_abs, rel_align_est=align_rel, rel_dist_est=dist_rel,
+                         repr_creator=align_abs)
     repeat_handlers = start_subscribes(repeat_fusion,
                                        "matched_repr", "", odom_topic, "",
                                        "local_alignment", "")

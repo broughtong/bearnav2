@@ -34,7 +34,7 @@ def callback(msg):
     ax.plot(displacements[maps == 2], distances[maps == 2], "ko", alpha=0.4)
     ax.plot(estimate_x, estimate_y, "rx")
     ax.set_xlim([-1.0, 1.0])
-    ax.set_ylim([estimate_y - 2, estimate_y + 2])
+    ax.set_ylim([estimate_y - 3, estimate_y + 3])
     # ax.set_ylim([np.min(distances), np.max(distances)])
     ax.grid()
     fig.canvas.draw()
