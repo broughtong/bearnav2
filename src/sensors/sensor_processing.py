@@ -198,7 +198,8 @@ class PF2D(SensorFusion):
             # TODO: this assumes that there is same number of features comming from all the maps (this does not have to hold when 2*map_len < lookaround)
             rospy.logwarn("!!!!!!!!!!!!!!!!!! One map has more images than other !!!!!!!!!!!!!!!!")
             return
-        map_trans = [map_trans[trans_per_map * map_idx:trans_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
+        map_trans = [map_trans[trans_per_map * map_idx:trans_per_map * (map_idx + 1)] for map_idx in
+                     range(self.map_num)]
         hists = [hists[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
         dists = np.array([dists[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)])
         timestamps = [timestamps[len_per_map * map_idx:len_per_map * (map_idx + 1)] for map_idx in range(self.map_num)]
@@ -231,6 +232,7 @@ class PF2D(SensorFusion):
             # centers of distances
             mat_dists = np.transpose(np.matrix((dists[map_idx, 1:] + dists[map_idx, :-1]) / 2.0))
             p_distances = np.matrix(self.particles[0, map_particle_mask])
+            # p_distances += traveled  # by adding this, the step is slightly predictive
             particles_in_map = np.sum(map_particle_mask)
             # rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
             closest_transition = np.transpose(np.argmin(np.abs(mat_dists - p_distances), axis=0))
@@ -247,10 +249,12 @@ class PF2D(SensorFusion):
             trans_diff = np.array(trans_per_particle * frac_per_particle)
             align_shift = curr_img_diff.transpose() + trans_diff
             # rospy.logwarn(closest_transition)
-            # rospy.logwarn("live: " + str(np.mean(curr_img_diff)))
-            # rospy.logwarn("map: " + str(np.mean(trans_diff)))
-            # rospy.logwarn("curr_time:" + str(curr_time_diff))
-            # rospy.logwarn("map_time" + str(time_diffs[map_idx]))
+
+            rospy.logwarn("map_tans" + str(np.argmax(map_trans[0], axis=-1)))
+            rospy.logwarn("live: " + str(np.mean(curr_img_diff)))
+            rospy.logwarn("map: " + str(np.mean(trans_diff)))
+            rospy.logwarn("curr_time:" + str(curr_time_diff))
+            rospy.logwarn("map_time" + str(time_diffs[map_idx]))
 
             # distance is not shifted because it is shifted already in odometry step
             particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
@@ -272,7 +276,8 @@ class PF2D(SensorFusion):
                 self.last_map_transition_time = rospy.Time.now()
                 for map_id in range(msg.maps[1]):
                     random_particles[random_particles == map_id] = self.rng.choice(np.arange(msg.maps[1]),
-                                                                                   int(np.sum(random_particles == map_id)),
+                                                                                   int(np.sum(
+                                                                                       random_particles == map_id)),
                                                                                    p=map_matrix[map_id])
                 self.particles[2, random_indices] = random_particles
             # rospy.logwarn("Motion step finished!")
@@ -295,7 +300,7 @@ class PF2D(SensorFusion):
 
         # sensor step -------------------------------------------------------------------------------
         particle_prob = np.zeros(self.particles.shape[-1])
-        self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)   # more than 0% overlap is nonsense
+        self.particles[1] = np.clip(self.particles[1], -1.0, 1.0)  # more than 0% overlap is nonsense
         for map_idx in range(self.map_num):
             map_particle_mask = self.particles[2] == map_idx
             map_masked_particles = self.particles[:, map_particle_mask]
@@ -310,9 +315,9 @@ class PF2D(SensorFusion):
         # perform some normalization and resample the particles via roulette wheel
         # particle_prob -= particle_prob.min()
         # particle_prob /= particle_prob.sum()
-        self.particle_prob = self._numpy_softmax(self.particle_prob, self.BETA_choice)
+        softmaxed_probs = self._numpy_softmax(self.particle_prob, self.BETA_choice)
         chosen_indices = self.rng.choice(np.shape(self.particles)[1], int(self.particles_num),
-                                         p=self.particle_prob)
+                                         p=softmaxed_probs)
         # rospy.logwarn(self.particles[2, chosen_indices])
 
         self.particle_prob = self.particle_prob[chosen_indices]
@@ -415,18 +420,20 @@ class PF2D(SensorFusion):
         return np.mean(self.particles, axis=1)
 
     def _get_weighted_mean_pos(self):
-        # # get weighted dist
-        # span = 0.25
-        # weighted_particles = self.particle_prob * self.particles[0]
-        # dist = np.sum(weighted_particles) / np.sum(self.particle_prob)
-        # # get masked alignment
-        # chosen_mask = (self.particles[0] < (dist + span)) * (self.particles[0] > (dist - span))
-        # chosen_probs = self.particle_prob[chosen_mask]
-        # align = np.sum(self.particles[1, chosen_mask] * chosen_probs) / np.sum(chosen_probs)
-        # return np.array([dist, align])
-        weighted_particles = self.particles[:2] * np.tile(self.particle_prob, (2, 1))
-        out = np.sum(weighted_particles, axis=1) / np.sum(self.particle_prob)
-        return out
+        # TODO: this method can yield an error when class variables are changed in process - make copies
+        align_span = 0.5    # crop of particles to estimate alignment
+        predictive = 0.25   # make alignment slightly predictive
+        dist = np.sum(self.particles[0] * self.particle_prob) / np.sum(self.particle_prob)
+        mask = (self.particles[0] < (dist + align_span + predictive)) \
+               * (self.particles[0] > (dist - align_span + predictive))
+        p_num = np.sum(mask)
+        if p_num < 50:
+            rospy.logwarn("Only " + str(p_num) + " particles used for alignment estimate - could be very noisy")
+        align = np.sum(self.particles[1, mask] * self.particle_prob[mask]) / np.sum(self.particle_prob[mask])
+        return np.array((dist, align))
+        # weighted_particles = self.particles[:2] * np.tile(self.particle_prob, (2, 1))
+        # out = np.sum(weighted_particles, axis=1) / np.sum(self.particle_prob)
+        # return out
 
     def _histogram_voting(self):
         hist, x, y = np.histogram2d(self.particles[0], self.particles[1], bins=20, weights=self.particle_prob)
