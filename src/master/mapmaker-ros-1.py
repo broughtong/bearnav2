@@ -68,9 +68,8 @@ class ActionServer:
         self.last_img_features = None
         self.mapName = ""
         self.mapStep = 1.0
-        self.nextStep = 0
+        self.nextStep = 0.0
         self.bag = None
-        self.lastDistance = 0.0
         self.visual_turn = True
         self.max_trans = 0.3
         self.curr_trans = 0.0
@@ -79,7 +78,7 @@ class ActionServer:
         self.save_imgs = False
         self.header = None
         self.target_distances = None
-        self.last_distances_diff = None
+        self.collected_distances = None
         self.dist = 0.0
         
         rospy.loginfo("Waiting for services to become available...")
@@ -164,13 +163,12 @@ class ActionServer:
             self.curr_hist = None
 
         # eventually save the image if conditions fulfilled ------------------------------------
-        if self.target_distances is not None and self.lastDistance != 0.0:
+        if self.target_distances is not None and self.curr_hist is not None:
             # when source map is provided
-            if np.sum(np.array(self.target_distances) <= self.lastDistance) < \
-                    np.sum(np.array(self.target_distances) <= dist):
-                self.lastDistance = dist
-                rospy.logwarn(np.array(self.target_distances) <= dist)
-                rospy.logwarn(np.array(self.target_distances) <= self.lastDistance)
+            desired_idx = np.argmin(abs(dist - np.array(self.target_distances)))
+            self.last_img_features = self.img_features
+            if self.collected_distances[desired_idx] == 0 and self.target_distances[desired_idx] < dist:
+                self.collected_distances[desired_idx] = 1
                 save_img(self.img_features, self.img_msg, self.header, self.mapName, dist, self.curr_hist,
                          self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
                 rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
@@ -178,11 +176,11 @@ class ActionServer:
         elif dist > self.nextStep or abs(self.curr_trans) > self.max_trans:
             # save after fix distance
             self.nextStep = dist + self.mapStep
+            self.last_img_features = self.img_features
             save_img(self.img_features, self.img_msg, self.header, self.mapName, dist, self.curr_hist,
                      self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
             rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
             self.cum_turn = 0.0
-            self.last_img_features = self.img_features
 
             # used for taking source map remapping
         self.checkShutdown()
@@ -202,6 +200,7 @@ class ActionServer:
             self.target_distances = []
             self.source_map = goal.sourceMap
             self.target_distances = get_map_dists(self.source_map)
+            self.collected_distances = np.zeros_like(self.target_distances)
             distance_sub = Subscriber("repeat/output_dist", SensorsOutput)
             align_sub = Subscriber("repeat/output_align", SensorsOutput)
             repr_sub = Subscriber("live_representation", FeaturesList)
@@ -250,13 +249,10 @@ class ActionServer:
             self.bag = rosbag.Bag(os.path.join(goal.mapName, goal.mapName + ".bag"), "w")
             self.mapName = goal.mapName
             self.nextStep = 0.0
-            self.lastDistance = 0.0
             self.isMapping = True
             result.success = True
             self.server.set_succeeded(result)
         else:
-            # filename = os.path.join(self.mapName, str(self.lastDistance) + ".jpg")
-            # cv2.imwrite(filename, self.img)
             if self.target_distances is None: # and self.nextStep - self.dist > self.mapStep/4:
                 save_img(self.img_features, self.img_msg, self.header, self.mapName,
                          self.dist, self.curr_hist, self.curr_alignment, self.source_map,

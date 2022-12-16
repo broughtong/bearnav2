@@ -247,14 +247,15 @@ class PF2D(SensorFusion):
             # rolls = np.random.rand(self.particles.shape[1])
             # indices = self._first_nonzero(np.matrix(trans_cumsum_per_particle) >= np.transpose(np.matrix(rolls)), 1)
             trans_diff = np.array(trans_per_particle * frac_per_particle)
-            align_shift = curr_img_diff.transpose() + trans_diff
-            # rospy.logwarn(closest_transition)
+            align_shift = curr_img_diff.transpose()[map_particle_mask] + trans_diff
 
-            rospy.logwarn("map_tans" + str(np.argmax(map_trans[0], axis=-1)))
-            rospy.logwarn("live: " + str(np.mean(curr_img_diff)))
-            rospy.logwarn("map: " + str(np.mean(trans_diff)))
-            rospy.logwarn("curr_time:" + str(curr_time_diff))
-            rospy.logwarn("map_time" + str(time_diffs[map_idx]))
+            # debugging
+            # rospy.logwarn(closest_transition)
+            # rospy.logwarn("map_tans" + str(np.argmax(map_trans[0], axis=-1)))
+            # rospy.logwarn("live: " + str(np.mean(curr_img_diff)))
+            # rospy.logwarn("map: " + str(np.mean(trans_diff)))
+            # rospy.logwarn("curr_time:" + str(curr_time_diff))
+            # rospy.logwarn("map_time" + str(time_diffs[map_idx]))
 
             # distance is not shifted because it is shifted already in odometry step
             particle_shifts = np.concatenate((np.zeros(trans_diff.shape), align_shift), axis=1)
