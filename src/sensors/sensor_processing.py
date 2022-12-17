@@ -91,13 +91,15 @@ class PF2D(SensorFusion):
     # Third dimension - maps
 
     def __init__(self, type_prefix: str, particles_num: int, odom_error: float, odom_init_std: float,
-                 align_beta: float, align_init_std: float, particles_frac: int, choice_beta: float, debug: bool,
+                 align_beta: float, align_init_std: float, particles_frac: int, choice_beta: float,
+                 add_random: float, debug: bool,
                  abs_align_est: DisplacementEstimator, rel_align_est: DisplacementEstimator,
                  rel_dist_est: RelativeDistanceEstimator, repr_creator: RepresentationsCreator):
         super(PF2D, self).__init__(type_prefix, abs_align_est=abs_align_est,
                                    rel_align_est=rel_align_est, rel_dist_est=rel_dist_est,
                                    repr_creator=repr_creator)
 
+        self.zero_dim = False
         self.one_dim = False
         self.use_map_trans = False
         self.rng = np.random.default_rng()
@@ -108,6 +110,7 @@ class PF2D(SensorFusion):
 
         self.particles_num = particles_num
         self.particles_frac = particles_frac
+        self.add_rand = add_random
         self.last_image = None
         self.last_odom = None
         self.particles = None
@@ -196,6 +199,7 @@ class PF2D(SensorFusion):
         trans_per_map = len_per_map - 1
         if len(dists) % msg.map_num > 0:
             # TODO: this assumes that there is same number of features comming from all the maps (this does not have to hold when 2*map_len < lookaround)
+            # however the mapmaker was updated so that the new maps should have always the same number of images, unless some major error occurs
             rospy.logwarn("!!!!!!!!!!!!!!!!!! One map has more images than other !!!!!!!!!!!!!!!!")
             return
         map_trans = [map_trans[trans_per_map * map_idx:trans_per_map * (map_idx + 1)] for map_idx in
@@ -215,9 +219,9 @@ class PF2D(SensorFusion):
         if abs(traveled) < 0.001:
             # this is when odometry is slower than the estimator
             self.last_time = curr_time
-            rospy.logwarn(
-                "Not enough movement detected for particle filter update!\n" + "traveled: " + str(traveled) + "," + str(
-                    np.var(curr_img_diff)))
+            # rospy.logwarn(
+            #     "Not enough movement detected for particle filter update!\n" + "traveled: " + str(traveled) + "," + str(
+            #         np.var(curr_img_diff)))
             return
 
         if self.particles.shape[-1] > self.particles_num:
@@ -232,7 +236,6 @@ class PF2D(SensorFusion):
             # centers of distances
             mat_dists = np.transpose(np.matrix((dists[map_idx, 1:] + dists[map_idx, :-1]) / 2.0))
             p_distances = np.matrix(self.particles[0, map_particle_mask])
-            # p_distances += traveled  # by adding this, the step is slightly predictive
             particles_in_map = np.sum(map_particle_mask)
             # rospy.logwarn(np.argmin(np.abs(mat_dists - p_distances)))
             closest_transition = np.transpose(np.argmin(np.abs(mat_dists - p_distances), axis=0))
@@ -285,19 +288,20 @@ class PF2D(SensorFusion):
 
         # add randomly spawned particles ------------------------------------------------------------
 
-        new = []
-        tmp = np.zeros((3, int(self.particles_num / 10)))
-        tmp[0, :] = self.rng.uniform(low=np.mean(dists[:, 0]), high=np.mean(dists[:, -1]),
-                                     size=(1, int(self.particles_num / 10)))
-        tmp[1, :] = self.rng.uniform(low=-0.5, high=0.5, size=(1, int(self.particles_num / 10)))
-        tmp[2, :] = np.random.randint(low=0, high=self.map_num, size=(1, int(self.particles_num / 10)))
-        new.append(tmp.transpose())
-        new.append(self.particles.transpose())
-        self.particles = np.concatenate(new).transpose()
-        if self.particle_prob is not None:
-            # set the lowest possible probability to all added particles
-            self.particle_prob = np.concatenate(
-                [self.particle_prob, np.zeros((self.particles[0].size - self.particles_num), )])
+        if self.add_rand > 0:
+            new = []
+            tmp = np.zeros((3, int(self.particles_num * self.add_rand)))
+            tmp[0, :] = self.rng.uniform(low=np.mean(dists[:, 0]), high=np.mean(dists[:, -1]),
+                                         size=(1, int(self.particles_num * self.add_rand)))
+            tmp[1, :] = self.rng.uniform(low=-0.5, high=0.5, size=(1, int(self.particles_num * self.add_rand)))
+            tmp[2, :] = np.random.randint(low=0, high=self.map_num, size=(1, int(self.particles_num * self.add_rand)))
+            new.append(tmp.transpose())
+            new.append(self.particles.transpose())
+            self.particles = np.concatenate(new).transpose()
+            if self.particle_prob is not None:
+                # set the lowest possible probability to all added particles
+                self.particle_prob = np.concatenate(
+                    [self.particle_prob, np.zeros((self.particles[0].size - self.particles_num), )])
 
         # sensor step -------------------------------------------------------------------------------
         particle_prob = np.zeros(self.particles.shape[-1])
@@ -341,8 +345,8 @@ class PF2D(SensorFusion):
             # rospy.loginfo("Outputted alignment: " + str(np.mean(self.particles[1, :])) + " +- " + str(np.std(self.particles[1, :])) + " with transitions: " + str(np.mean(curr_img_diff))
             #               + " and " + str(np.mean(trans_diff)))
 
-        rospy.logwarn(
-            "Finished processing - everything took: " + str((rospy.Time.now() - msg.header.stamp).to_sec()) + " secs")
+        # rospy.logwarn(
+        #     "Finished processing - everything took: " + str((rospy.Time.now() - msg.header.stamp).to_sec()) + " secs")
 
     def _process_rel_distance(self, msg):
         # only increment the distance
@@ -423,7 +427,7 @@ class PF2D(SensorFusion):
     def _get_weighted_mean_pos(self):
         # TODO: this method can yield an error when class variables are changed in process - make copies
         align_span = 0.5    # crop of particles to estimate alignment
-        predictive = 0.25   # make alignment slightly predictive
+        predictive = 0.0   # make alignment slightly predictive
         dist = np.sum(self.particles[0] * self.particle_prob) / np.sum(self.particle_prob)
         mask = (self.particles[0] < (dist + align_span + predictive)) \
                * (self.particles[0] > (dist - align_span + predictive))

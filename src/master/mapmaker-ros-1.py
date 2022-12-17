@@ -144,7 +144,7 @@ class ActionServer:
             return
 
         # obtain displacement between prev and new image --------------------------------------
-        if self.visual_turn and self.last_img_features is not None:
+        if self.visual_turn and self.last_img_features is not None and dist:
             # create message
             srv_msg = SensorsInput()
             srv_msg.map_features = [numpy_to_feature(self.last_img_features)]
@@ -167,22 +167,23 @@ class ActionServer:
             # when source map is provided
             desired_idx = np.argmin(abs(dist - np.array(self.target_distances)))
             self.last_img_features = self.img_features
-            if self.collected_distances[desired_idx] == 0 and self.target_distances[desired_idx] < dist:
+            if self.collected_distances[desired_idx] == 0 and self.target_distances[desired_idx] <= dist:
                 self.collected_distances[desired_idx] = 1
                 save_img(self.img_features, self.img_msg, self.header, self.mapName, dist, self.curr_hist,
                          self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
                 rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
 
-        elif dist > self.nextStep or abs(self.curr_trans) > self.max_trans:
+        if self.target_distances is None and (dist > self.nextStep or abs(self.curr_trans) > self.max_trans):
             # save after fix distance
             self.nextStep = dist + self.mapStep
             self.last_img_features = self.img_features
             save_img(self.img_features, self.img_msg, self.header, self.mapName, dist, self.curr_hist,
                      self.curr_alignment, self.source_map, self.save_imgs)  # with resizing
             rospy.loginfo("Saved waypoint: " + str(dist) + ", " + str(self.curr_trans))
-            self.cum_turn = 0.0
 
             # used for taking source map remapping
+        if self.last_img_features is None:
+            self.last_img_features = self.img_features
         self.checkShutdown()
 
     def joyCB(self, msg):

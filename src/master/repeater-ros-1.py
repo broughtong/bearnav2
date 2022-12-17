@@ -112,6 +112,7 @@ class ActionServer():
         self.curr_map = 0
         self.map_num = 0
         self.last_map = 0
+        self.nearest_map_img = -1
 
         rospy.logdebug("Waiting for services to become available...")
         rospy.wait_for_service("repeat/set_dist")
@@ -154,18 +155,20 @@ class ActionServer():
             timestamps = []
             offsets = []
             transitions = []
+            last_nearest_img = self.nearest_map_img
             for map_idx in range(self.map_num):
-                nearest_main_map_idx = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
-                rospy.loginfo("matching image " + str(nearest_main_map_idx) + " at distance " + str(self.curr_dist))
+                self.nearest_map_img = np.argmin(abs(self.curr_dist - np.array(self.map_distances[map_idx])))
                 # allow only move in map by one image per iteration
-                lower_bound = max(0, nearest_main_map_idx - self.map_publish_span)
-                upper_bound = min(nearest_main_map_idx + self.map_publish_span + 1, len(self.map_distances[map_idx]))
+                lower_bound = max(0, self.nearest_map_img - self.map_publish_span)
+                upper_bound = min(self.nearest_map_img + self.map_publish_span + 1, len(self.map_distances[map_idx]))
                 features.extend(self.map_images[map_idx][lower_bound:upper_bound])
                 distances.extend(self.map_distances[map_idx][lower_bound:upper_bound])
                 timestamps.extend(self.map_times[map_idx][lower_bound:upper_bound])
                 offsets.extend(self.map_alignments[map_idx][lower_bound:upper_bound])
                 transitions.extend(self.map_transitions[map_idx][lower_bound:upper_bound - 1])
-
+            if self.nearest_map_img != last_nearest_img:
+                rospy.loginfo("matching image " + str(self.map_distances[-1][self.nearest_map_img]) +
+                              " at distance " + str(self.curr_dist))
             transitions = np.array(transitions)
             # Create message for estimators
             sns_in = SensorsInput()
@@ -380,7 +383,7 @@ class ActionServer():
         if len(self.action_dists) > 0:
             distance_to_pos = abs(self.curr_dist - self.action_dists)
             closest_idx = np.argmin(distance_to_pos)
-            rospy.loginfo("replaying action at: " + str(closest_idx))
+            # rospy.loginfo("replaying action at: " + str(closest_idx))
             if self.isRepeating:
                 self.joy_pub.publish(self.actions[closest_idx])
         else:

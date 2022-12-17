@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-filenames = ["recorded_alignment_1d.txt", "recorded_alignment.txt"]
+filenames = ["recorded_alignment_2d.txt", "recorded_alignment.txt"]
 
 
 if __name__ == "__main__":
