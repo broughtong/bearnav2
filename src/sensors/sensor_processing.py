@@ -186,7 +186,8 @@ class PF2D(SensorFusion):
         map_trans = np.array(msg.map_transitions[0].values).reshape(msg.map_transitions[0].shape)
         live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hist_width = hists.shape[-1]
-        shifts = np.round(msg.map_offset * (hist_width // 2)).astype(int)
+        shifts = np.round(np.array(msg.map_offset) * (hist_width // 2)).astype(int)
+        rospy.logwarn(list(shifts))
         hists = np.roll(hists, shifts, -1)  # not sure if last dim should be rolled like this
         curr_img_diff = self._sample_hist([live_hist])
         curr_time_diff = (curr_time - self.last_time).to_sec()
@@ -377,7 +378,7 @@ class PF2D(SensorFusion):
         # coords = np.mean(self.particles, axis=1)
         tmp_particles = self.particles
         if self.particle_prob is not None:
-            self.coords = self._get_weighted_mean_pos()
+            self.coords = self._get_weighted_mean_pos(np.copy(self.particles), np.copy(self.particle_prob))
             # self.coords = self._histogram_voting()
             # self.coords = self.particles[:2, np.argmax(self.particle_prob)]
             if self.one_dim:
@@ -424,20 +425,20 @@ class PF2D(SensorFusion):
     def _get_mean_pos(self):
         return np.mean(self.particles, axis=1)
 
-    def _get_weighted_mean_pos(self):
+    def _get_weighted_mean_pos(self, particles, particle_prob):
         # TODO: this method can yield an error when class variables are changed in process - make copies
         align_span = 0.5    # crop of particles to estimate alignment
         predictive = 0.0   # make alignment slightly predictive
-        dist = np.sum(self.particles[0] * self.particle_prob) / np.sum(self.particle_prob)
-        mask = (self.particles[0] < (dist + align_span + predictive)) \
-               * (self.particles[0] > (dist - align_span + predictive))
+        dist = np.sum(particles[0] * particle_prob) / np.sum(particle_prob)
+        mask = (particles[0] < (dist + align_span + predictive)) \
+               * (particles[0] > (dist - align_span + predictive))
         p_num = np.sum(mask)
         if p_num < 50:
             rospy.logwarn("Only " + str(p_num) + " particles used for alignment estimate - could be very noisy")
-        align = np.sum(self.particles[1, mask] * self.particle_prob[mask]) / np.sum(self.particle_prob[mask])
+        align = np.sum(particles[1, mask] * particle_prob[mask]) / np.sum(particle_prob[mask])
         return np.array((dist, align))
-        # weighted_particles = self.particles[:2] * np.tile(self.particle_prob, (2, 1))
-        # out = np.sum(weighted_particles, axis=1) / np.sum(self.particle_prob)
+        # weighted_particles = particles[:2] * np.tile(particle_prob, (2, 1))
+        # out = np.sum(weighted_particles, axis=1) / np.sum(particle_prob)
         # return out
 
     def _histogram_voting(self):
