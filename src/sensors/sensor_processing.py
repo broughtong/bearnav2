@@ -187,7 +187,6 @@ class PF2D(SensorFusion):
         live_hist = np.array(msg.live_features[0].values).reshape(msg.live_features[0].shape)
         hist_width = hists.shape[-1]
         shifts = np.round(np.array(msg.map_offset) * (hist_width // 2)).astype(int)
-        rospy.logwarn(list(shifts))
         hists = np.roll(hists, shifts, -1)  # not sure if last dim should be rolled like this
         curr_img_diff = self._sample_hist([live_hist])
         curr_time_diff = (curr_time - self.last_time).to_sec()
